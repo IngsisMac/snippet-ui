@@ -1,4 +1,5 @@
-import {AUTH0_PASSWORD, AUTH0_USERNAME, BACKEND_URL} from "../../src/utils/constants";
+import {BACKEND_URL} from "../../src/utils/constants";
+// import {AUTH0_PASSWORD, AUTH0_USERNAME} from "../../src/utils/constants"; // TODO: Auth0 login in Cypress
 import {FakeSnippetStore} from "../../src/utils/mock/fakeSnippetStore";
 
 describe('Add snippet tests', () => {

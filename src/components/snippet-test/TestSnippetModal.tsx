@@ -5,20 +5,24 @@ import {AddRounded} from "@mui/icons-material";
 import {useGetTestCases, usePostTestCase, useRemoveTestCase} from "../../utils/queries.tsx";
 import {TabPanel} from "./TabPanel.tsx";
 import {queryClient} from "../../App.tsx";
+import {TestCase} from "../../types/TestCase.ts";
 
 type TestSnippetModalProps = {
+    snippetId: string
     open: boolean
     onClose: () => void
 }
 
-export const TestSnippetModal = ({open, onClose}: TestSnippetModalProps) => {
+export const TestSnippetModal = ({snippetId, open, onClose}: TestSnippetModalProps) => {
     const [value, setValue] = useState(0);
 
-    const {data: testCases} = useGetTestCases();
-    const {mutateAsync: postTestCase} = usePostTestCase();
-    const {mutateAsync: removeTestCase} = useRemoveTestCase({
-        onSuccess: () => queryClient.invalidateQueries('testCases')
+    const {data: testCases} = useGetTestCases(snippetId);
+    const {mutateAsync: postTestCase} = usePostTestCase(snippetId);
+    const {mutateAsync: removeTestCase} = useRemoveTestCase(snippetId, {
+        onSuccess: () => queryClient.invalidateQueries(['testCases', snippetId])
     });
+    const saveTestCase = (tc: Partial<TestCase>) =>
+        postTestCase(tc).then(() => queryClient.invalidateQueries(['testCases', snippetId]))
 
     const handleChange = (_: SyntheticEvent, newValue: number) => {
         setValue(newValue);
@@ -38,20 +42,20 @@ export const TestSnippetModal = ({open, onClose}: TestSnippetModalProps) => {
                     sx={{borderRight: 1, borderColor: 'divider'}}
                 >
                     {testCases?.map((testCase) => (
-                        <Tab label={testCase.name}/>
+                        <Tab key={testCase.id} label={testCase.name}/>
                     ))}
                     <IconButton disableRipple onClick={() => setValue((testCases?.length ?? 0) + 1)}>
                         <AddRounded />
                     </IconButton>
                 </Tabs>
                 {testCases?.map((testCase, index) => (
-                    <TabPanel index={index} value={value} test={testCase}
-                              setTestCase={(tc) => postTestCase(tc)}
+                    <TabPanel key={testCase.id} snippetId={snippetId} index={index} value={value} test={testCase}
+                              setTestCase={saveTestCase}
                               removeTestCase={(i) => removeTestCase(i)}
                     />
                 ))}
-                <TabPanel index={(testCases?.length ?? 0) + 1} value={value}
-                          setTestCase={(tc) => postTestCase(tc)}
+                <TabPanel snippetId={snippetId} index={(testCases?.length ?? 0) + 1} value={value}
+                          setTestCase={saveTestCase}
                 />
             </Box>
         </ModalWrapper>

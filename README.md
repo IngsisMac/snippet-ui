@@ -55,16 +55,28 @@ To start cypress, make sure that the UI is running and enter:
 npm run cypress
 ```
 
-## Enable Auth0
+## Auth0 and backend wiring
 
-This application uses https://www.npmjs.com/package/@auth0/auth0-react library for Auth0 integration, to enable it you need to change:
-* Uncomment autologin in [App.tsx](src/App.tsx)
-* Uncomment token retrieval for operations [queries.tsx](src/utils/queries.tsx) 
-* Create a `.env` file with the required env vars:
+Authentication is already enabled: `App.tsx` is wrapped with `withAuthenticationRequired` and
+`queries.tsx` builds an `HttpSnippetOperations` (see `src/utils/http/`) that attaches the access
+token from `getAccessTokenSilently` to every request. The adapter translates the backend
+contracts (Spring `Page`, upper-case compliance status, rules map) into the types this UI expects.
+
+Create a `.env` file with:
 ```
-VITE_AUTH0_DOMAIN=<domain>
-VITE_AUTH0_CLIENT_ID=<client_id>
+VITE_AUTH0_DOMAIN=<tenant>.<region>.auth0.com
+VITE_AUTH0_CLIENT_ID=<client_id of the SPA application>
+VITE_AUTH0_AUDIENCE=https://snippet-searcher.ingsis/
 ```
+
+The `audience` is mandatory: without it Auth0 issues opaque tokens that the resource servers reject.
+
+API calls go to the relative path `/api`, which NGINX routes to the services. During local
+development (`npm run dev` on port 5173) Vite proxies `/api` to the gateway on
+`http://localhost:8080` (override it with `GATEWAY_URL` in `.env`).
+
+On every login the UI registers the user's profile with `PUT /api/users/me`, so other users can
+find them in the share dialog.
 
 If you get 401 loop when getting token:
 * Change application type in Auth0 to "Regular Web Application"
@@ -84,8 +96,8 @@ If you get 401 loop when getting token:
 
 ## Tasks
 
-- [ ] Integrate Auth0 UI and private routes
-- [ ] Integrate your endpoints to the UI (Create custom "SnippetOperations")
-- [ ] Dockerize
+- [x] Integrate Auth0 UI and private routes
+- [x] Integrate your endpoints to the UI (Create custom "SnippetOperations")
+- [x] Dockerize
 - [ ] CI/CD
 - [ ] Sockets*

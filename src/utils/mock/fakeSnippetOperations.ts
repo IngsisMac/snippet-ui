@@ -48,6 +48,10 @@ export class FakeSnippetOperations implements SnippetOperations {
     })
   }
 
+  registerCurrentUser(): Promise<void> {
+    return Promise.resolve()
+  }
+
   getUserFriends(name: string = "", page: number = 1, pageSize: number = 10): Promise<PaginatedUsers> {
     return new Promise(resolve => {
       setTimeout(() => resolve(this.fakeStore.getUserFriends(name,page,pageSize)), DELAY)
@@ -73,31 +77,31 @@ export class FakeSnippetOperations implements SnippetOperations {
     })
   }
 
-  formatSnippet(snippetContent: string): Promise<string> {
+  formatSnippet(_snippetId: string, snippetContent: string): Promise<string> {
     return new Promise(resolve => {
       setTimeout(() => resolve(this.fakeStore.formatSnippet(snippetContent)), DELAY)
     })
   }
 
-  getTestCases(): Promise<TestCase[]> {
+  getTestCases(_snippetId: string): Promise<TestCase[]> {
     return new Promise(resolve => {
       setTimeout(() => resolve(this.fakeStore.getTestCases()), DELAY)
     })
   }
 
-  postTestCase(testCase: TestCase): Promise<TestCase> {
+  postTestCase(_snippetId: string, testCase: TestCase): Promise<TestCase> {
     return new Promise(resolve => {
       setTimeout(() => resolve(this.fakeStore.postTestCase(testCase)), DELAY)
     })
   }
 
-  removeTestCase(id: string): Promise<string> {
+  removeTestCase(_snippetId: string, id: string): Promise<string> {
     return new Promise(resolve => {
       setTimeout(() => resolve(this.fakeStore.removeTestCase(id)), DELAY)
     })
   }
 
-  testSnippet(): Promise<TestCaseResult> {
+  testSnippet(_snippetId: string): Promise<TestCaseResult> {
     return new Promise(resolve => {
       setTimeout(() => resolve(this.fakeStore.testSnippet()), DELAY)
     })

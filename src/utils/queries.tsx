@@ -1,29 +1,29 @@
 import {useMutation, UseMutationResult, useQuery} from 'react-query';
 import {CreateSnippet, PaginatedSnippets, Snippet, UpdateSnippet} from './snippet.ts';
-import {SnippetOperations} from "./snippetOperations.ts";
+import {CurrentUserProfile, SnippetOperations} from "./snippetOperations.ts";
 import {PaginatedUsers} from "./users.ts";
-import {FakeSnippetOperations} from "./mock/fakeSnippetOperations.ts";
 import {TestCase} from "../types/TestCase.ts";
 import {FileType} from "../types/FileType.ts";
 import {Rule} from "../types/Rule.ts";
-// import {useAuth0} from "@auth0/auth0-react";
-// import {useEffect} from "react";
+import {useAuth0} from "@auth0/auth0-react";
+import {useMemo} from "react";
+import {HttpSnippetOperations} from "./http/httpSnippetOperations.ts";
+import {BACKEND_URL} from "./constants.ts";
 
 
-export const useSnippetsOperations = () => {
-  // const {getAccessTokenSilently} = useAuth0()
-  //
-  // useEffect(() => {
-  //     getAccessTokenSilently()
-  //         .then(token => {
-  //             console.log(token)
-  //         })
-  //         .catch(error => console.error(error));
-  // });
+export const useSnippetsOperations = (): SnippetOperations => {
+  const {getAccessTokenSilently} = useAuth0()
 
-  const snippetOperations: SnippetOperations = new FakeSnippetOperations(/* getAccessTokenSilently */); // TODO: Replace with your implementation
+  return useMemo(
+      () => new HttpSnippetOperations(BACKEND_URL, () => getAccessTokenSilently()),
+      [getAccessTokenSilently]
+  )
+}
 
-  return snippetOperations
+export const useRegisterCurrentUser = () => {
+  const snippetOperations = useSnippetsOperations()
+
+  return useMutation<void, Error, CurrentUserProfile>(profile => snippetOperations.registerCurrentUser(profile))
 }
 
 export const useGetSnippets = (page: number = 0, pageSize: number = 10, snippetName?: string) => {
@@ -74,28 +74,30 @@ export const useShareSnippet = () => {
 };
 
 
-export const useGetTestCases = () => {
+export const useGetTestCases = (snippetId: string) => {
   const snippetOperations = useSnippetsOperations()
 
-  return useQuery<TestCase[] | undefined, Error>(['testCases'], () => snippetOperations.getTestCases(), {});
+  return useQuery<TestCase[] | undefined, Error>(['testCases', snippetId], () => snippetOperations.getTestCases(snippetId), {
+    enabled: !!snippetId,
+  });
 };
 
 
-export const usePostTestCase = () => {
+export const usePostTestCase = (snippetId: string) => {
   const snippetOperations = useSnippetsOperations()
 
   return useMutation<TestCase, Error, Partial<TestCase>>(
-      (tc) => snippetOperations.postTestCase(tc)
+      (tc) => snippetOperations.postTestCase(snippetId, tc)
   );
 };
 
 
-export const useRemoveTestCase = ({onSuccess}: {onSuccess: () => void}) => {
+export const useRemoveTestCase = (snippetId: string, {onSuccess}: {onSuccess: () => void}) => {
   const snippetOperations = useSnippetsOperations()
 
   return useMutation<string, Error, string>(
-      ['removeTestCase'],
-      (id) => snippetOperations.removeTestCase(id),
+      ['removeTestCase', snippetId],
+      (id) => snippetOperations.removeTestCase(snippetId, id),
       {
         onSuccess,
       }
@@ -104,11 +106,11 @@ export const useRemoveTestCase = ({onSuccess}: {onSuccess: () => void}) => {
 
 export type TestCaseResult = "success" | "fail"
 
-export const useTestSnippet = () => {
+export const useTestSnippet = (snippetId: string) => {
   const snippetOperations = useSnippetsOperations()
 
   return useMutation<TestCaseResult, Error, Partial<TestCase>>(
-      (tc) => snippetOperations.testSnippet(tc)
+      (tc) => snippetOperations.testSnippet(snippetId, tc)
   )
 }
 
@@ -146,11 +148,11 @@ export const useModifyLintingRules = ({onSuccess}: {onSuccess: () => void}) => {
   );
 }
 
-export const useFormatSnippet = () => {
+export const useFormatSnippet = (snippetId: string) => {
   const snippetOperations = useSnippetsOperations()
 
   return useMutation<string, Error, string>(
-      snippetContent => snippetOperations.formatSnippet(snippetContent)
+      snippetContent => snippetOperations.formatSnippet(snippetId, snippetContent)
   );
 }
 
