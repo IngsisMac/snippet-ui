@@ -15,7 +15,7 @@ export const defaultPagination = {
   count: 10
 }
 
-// @ts-expect-error
+// @ts-expect-error -- the provider always supplies a value; null is only the createContext placeholder
 export const PaginationContext = createContext<PaginationContextType>(null)
 
 export const usePaginationContext = (): PaginationContextType => useContext(PaginationContext)

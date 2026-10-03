@@ -12,7 +12,7 @@ export type SnackbarContextType = {
 }
 
 
-// @ts-expect-error
+// @ts-expect-error -- the provider always supplies a value; null is only the createContext placeholder
 export const SnackbarContext = createContext<SnackbarContextType>(null)
 
 export const useSnackbarContext = (): SnackbarContextType => useContext(SnackbarContext)
