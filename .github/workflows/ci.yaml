@@ -2,9 +2,9 @@ name: CI/CD UI
 
 on:
   push:
-    branches: [ main, dev ]
+    branches: [ main, master, dev ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
 
 jobs:
   build-and-test:
@@ -20,7 +20,7 @@ jobs:
 
   docker-publish:
     needs: build-and-test
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')
     runs-on: ubuntu-latest
     permissions:
       contents: read
