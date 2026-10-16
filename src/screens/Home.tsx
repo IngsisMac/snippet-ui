@@ -17,7 +17,7 @@ const HomeScreen = () => {
   const {data, isLoading} = useGetSnippets(page, page_size, snippetName)
 
   useEffect(() => {
-    if (data?.count && data.count != count) {
+    if (data?.count !== undefined && data.count != count) {
       handleChangeCount(data.count)
     }
   }, [count, data?.count, handleChangeCount]);

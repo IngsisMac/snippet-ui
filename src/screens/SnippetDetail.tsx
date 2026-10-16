@@ -19,6 +19,7 @@ import {SnippetExecution} from "./SnippetExecution.tsx";
 import ReadMoreIcon from '@mui/icons-material/ReadMore';
 import {queryClient} from "../App.tsx";
 import {DeleteConfirmationModal} from "../components/snippet-detail/DeleteConfirmationModal.tsx";
+import {useSnackbarContext} from "../contexts/snackbarContext.tsx";
 
 type SnippetDetailProps = {
   id: string;
@@ -61,6 +62,17 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
   const {mutate: shareSnippet, isLoading: loadingShare} = useShareSnippet()
   const {mutate: formatSnippet, isLoading: isFormatLoading, data: formatSnippetData} = useFormatSnippet(id)
   const {mutate: updateSnippet, isLoading: isUpdateSnippetLoading} = useUpdateSnippetById({onSuccess: () => queryClient.invalidateQueries(['snippet', id])})
+  const {createSnackbar} = useSnackbarContext()
+
+  // Toda mutacion informa su resultado: sin esto un 403 (usuario con solo lectura) o un 400 pasan en silencio.
+  const notifyError = (error: Error) => createSnackbar('error', error.message)
+
+  const handleSaveChanges = () => updateSnippet({id: id, updateSnippet: {content: code}}, {
+    onSuccess: () => createSnackbar('success', 'Snippet saved'),
+    onError: notifyError,
+  })
+
+  const handleFormat = () => formatSnippet(code, {onError: notifyError})
 
   useEffect(() => {
     if (snippet) {
@@ -76,7 +88,13 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
 
 
   async function handleShareSnippet(userId: string) {
-    shareSnippet({snippetId: id, userId})
+    shareSnippet({snippetId: id, userId}, {
+      onSuccess: () => {
+        createSnackbar('success', 'Snippet shared')
+        setShareModalOppened(false)
+      },
+      onError: notifyError,
+    })
   }
 
   return (
@@ -109,12 +127,12 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
               {/*</Tooltip>*/}
               {/* TODO: we can implement a live mode*/}
               <Tooltip title={"Format"}>
-                <IconButton onClick={() => formatSnippet(code)} disabled={isFormatLoading}>
+                <IconButton onClick={handleFormat} disabled={isFormatLoading}>
                   <ReadMoreIcon />
                 </IconButton>
               </Tooltip>
               <Tooltip title={"Save changes"}>
-                <IconButton color={"primary"} onClick={() => updateSnippet({id: id, updateSnippet: {content: code}})} disabled={isUpdateSnippetLoading || snippet?.content === code} >
+                <IconButton color={"primary"} onClick={handleSaveChanges} disabled={isUpdateSnippetLoading || snippet?.content === code} >
                   <Save />
                 </IconButton>
               </Tooltip>

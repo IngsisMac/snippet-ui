@@ -54,7 +54,9 @@ export const TestSnippetModal = ({snippetId, open, onClose}: TestSnippetModalPro
                               removeTestCase={(i) => removeTestCase(i)}
                     />
                 ))}
-                <TabPanel snippetId={snippetId} index={(testCases?.length ?? 0) + 1} value={value}
+                {/* La key remonta el panel vacío cada vez que se guarda un test: sin ella conserva el formulario anterior. */}
+                <TabPanel key={`new-${testCases?.length ?? 0}`} snippetId={snippetId}
+                          index={(testCases?.length ?? 0) + 1} value={value}
                           setTestCase={saveTestCase}
                 />
             </Box>
