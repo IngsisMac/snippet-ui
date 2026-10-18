@@ -5,7 +5,10 @@ import {
   Checkbox,
   List,
   ListItem,
-  ListItemText, TextField,
+  ListItemText,
+  MenuItem,
+  Select,
+  TextField,
   Typography
 } from "@mui/material";
 import {useGetFormatRules, useModifyFormatRules} from "../../utils/queries.tsx";
@@ -77,12 +80,23 @@ const FormattingRulesList = () => {
                   variant={"standard"}
                   value={rule.value}
                   onChange={handleNumberChange(rule)}
-                />) : typeof rule.value === 'string' ?
-                  (<TextField
-                    variant={"standard"}
-                    value={rule.value}
-                    onChange={e => handleValueChange(rule, e.target.value)}
-                  />) : null
+                />) : typeof rule.value === 'string' ? (
+                  rule.options ?
+                    (<Select
+                      variant={"standard"}
+                      value={rule.value}
+                      onChange={e => handleValueChange(rule, e.target.value)}
+                    >
+                      {rule.options.map(option => (
+                        <MenuItem key={option} value={option}>{option}</MenuItem>
+                      ))}
+                    </Select>) :
+                    (<TextField
+                      variant={"standard"}
+                      value={rule.value}
+                      onChange={e => handleValueChange(rule, e.target.value)}
+                    />)
+                ) : null
               }
             </ListItem>
           )

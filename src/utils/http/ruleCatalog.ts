@@ -1,42 +1,15 @@
 import {Rule} from "../../types/Rule.ts";
+import {RuleDefinitionResponse} from "./backendTypes.ts";
 
 /**
- * Catálogo de reglas de PrintScript con las claves exactas que entienden el formatter y el
- * linter (son las del TCK). El backend guarda un mapa `clave -> valor` por usuario; la UI
- * necesita la lista completa para mostrar también las reglas apagadas.
+ * Traducción entre el catálogo de reglas que publica permission-service y la lista que espera la
+ * pantalla de reglas. El catálogo ya no vive acá: es el backend el que conoce las claves que
+ * entienden el formatter y el linter, y el que rechaza un PUT con claves desconocidas. La interfaz
+ * solo necesita la lista completa para mostrar también las reglas apagadas.
  */
-export type RuleDefinition = {
-  name: string;
-  kind: 'boolean' | 'number' | 'string';
-  defaultValue?: number | string;
-}
-
-export const FORMAT_RULE_CATALOG: RuleDefinition[] = [
-  {name: 'enforce-spacing-around-equals', kind: 'boolean'},
-  {name: 'enforce-no-spacing-around-equals', kind: 'boolean'},
-  {name: 'enforce-spacing-before-colon-in-declaration', kind: 'boolean'},
-  {name: 'enforce-spacing-after-colon-in-declaration', kind: 'boolean'},
-  {name: 'mandatory-single-space-separation', kind: 'boolean'},
-  {name: 'mandatory-space-surrounding-operations', kind: 'boolean'},
-  {name: 'mandatory-line-break-after-statement', kind: 'boolean'},
-  {name: 'line-breaks-after-println', kind: 'number', defaultValue: 1},
-  {name: 'if-brace-same-line', kind: 'boolean'},
-  {name: 'if-brace-below-line', kind: 'boolean'},
-  {name: 'indent-inside-if', kind: 'number', defaultValue: 4},
-  {name: 'enforce-no-space-before-semicolon', kind: 'boolean'},
-  {name: 'max-blank-lines-between-statements', kind: 'number', defaultValue: 1},
-]
-
-export const LINT_RULE_CATALOG: RuleDefinition[] = [
-  {name: 'identifier_format', kind: 'string', defaultValue: 'camel case'},
-  {name: 'mandatory-variable-or-literal-in-println', kind: 'boolean'},
-  {name: 'mandatory-variable-or-literal-in-readInput', kind: 'boolean'},
-  {name: 'no-unused-variables', kind: 'boolean'},
-  {name: 'no-empty-println', kind: 'boolean'},
-]
 
 /** Mapa guardado en el backend -> lista completa de reglas para la pantalla de Rules. */
-export const rulesFromConfig = (catalog: RuleDefinition[], config: Record<string, unknown>): Rule[] =>
+export const rulesFromConfig = (catalog: RuleDefinitionResponse[], config: Record<string, unknown>): Rule[] =>
     catalog.map((definition, index) => {
       const stored = config[definition.name]
       const isActive = stored !== undefined && stored !== null && stored !== false
@@ -45,11 +18,12 @@ export const rulesFromConfig = (catalog: RuleDefinition[], config: Record<string
         name: definition.name,
         isActive,
         value: valueFor(definition, stored),
+        options: definition.allowedValues.length > 0 ? definition.allowedValues : undefined,
       }
     })
 
 /** Lista de reglas de la pantalla -> mapa con solo las reglas activas, listo para el backend. */
-export const configFromRules = (catalog: RuleDefinition[], rules: Rule[]): Record<string, unknown> => {
+export const configFromRules = (catalog: RuleDefinitionResponse[], rules: Rule[]): Record<string, unknown> => {
   const kinds = new Map(catalog.map(d => [d.name, d]))
   const config: Record<string, unknown> = {}
   rules.filter(rule => rule.isActive).forEach(rule => {
@@ -63,13 +37,13 @@ export const configFromRules = (catalog: RuleDefinition[], rules: Rule[]): Recor
   return config
 }
 
-const valueFor = (definition: RuleDefinition, stored: unknown): Rule['value'] => {
+const valueFor = (definition: RuleDefinitionResponse, stored: unknown): Rule['value'] => {
   switch (definition.kind) {
     case 'boolean':
       return null
     case 'number':
-      return typeof stored === 'number' ? stored : definition.defaultValue ?? 0
+      return typeof stored === 'number' ? stored : (definition.defaultValue as number) ?? 0
     case 'string':
-      return typeof stored === 'string' ? stored : definition.defaultValue ?? ''
+      return typeof stored === 'string' ? stored : (definition.defaultValue as string) ?? ''
   }
 }
