@@ -1,9 +1,10 @@
 import {useState} from "react";
 import {TestCase} from "../../types/TestCase.ts";
-import {Autocomplete, Box, Button, Chip, TextField, Typography} from "@mui/material";
+import {Alert, Autocomplete, Box, Button, Chip, TextField, Typography} from "@mui/material";
 import {BugReport, Delete, Save} from "@mui/icons-material";
 import {useTestSnippet} from "../../utils/queries.tsx";
 import {useSnackbarContext} from "../../contexts/snackbarContext.tsx";
+import {queryClient} from "../../App.tsx";
 
 type TabPanelProps = {
     snippetId: string;
@@ -20,7 +21,13 @@ export const TabPanel = ({snippetId, value, index, test: initialTest, setTestCas
 
     const {mutateAsync: testSnippet, data} = useTestSnippet(snippetId);
 
-    const runTest = () => testSnippet(testData ?? {}).catch((e: Error) => createSnackbar('error', e.message))
+    // El resultado queda guardado en el backend, así que se refresca la lista para que el
+    // indicador de la pestaña muestre lo mismo que acaba de pasar.
+    const runTest = () => testSnippet(testData ?? {})
+        .then(() => queryClient.invalidateQueries(['testCases', snippetId]))
+        .catch((e: Error) => createSnackbar('error', e.message))
+
+    const lastRun = initialTest?.lastRun
 
 
     return (
@@ -29,7 +36,7 @@ export const TabPanel = ({snippetId, value, index, test: initialTest, setTestCas
             hidden={value !== index}
             id={`vertical-tabpanel-${index}`}
             aria-labelledby={`vertical-tab-${index}`}
-            style={{width: '100%', height: '100%'}}
+            style={{flex: 1, minWidth: 0, height: '100%'}}
         >
             {value === index && (
                 <Box sx={{px: 3}} display="flex" flexDirection="column" gap={2}>
@@ -82,6 +89,15 @@ export const TabPanel = ({snippetId, value, index, test: initialTest, setTestCas
                             options={[]}
                         />
                     </Box>
+                    {lastRun?.status === 'pending' && (
+                        <Alert severity="info">Queued: the snippet changed and this test is running in the background</Alert>
+                    )}
+                    {lastRun?.status === 'failed' && lastRun.errors.length > 0 && (
+                        <Alert severity="error">{lastRun.errors.join(' · ')}</Alert>
+                    )}
+                    {lastRun?.status === 'failed' && lastRun.errors.length === 0 && (
+                        <Alert severity="warning">Last run produced {lastRun.actualOutputs.join(' · ') || 'no output'}</Alert>
+                    )}
                     <Box display="flex" flexDirection="row" gap={1}>
                         {
                             (testData?.id && removeTestCase) && (
