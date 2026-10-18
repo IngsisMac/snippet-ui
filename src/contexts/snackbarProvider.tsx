@@ -25,7 +25,8 @@ export const SnackbarProvider = ({children}: { children: ReactNode }) => {
         <>
           {
             snackbars.map((snackbar,i) => (
-                <Snackbar key={i} open={snackbars.includes(snackbar)} autoHideDuration={6000}>
+                <Snackbar key={i} open={snackbars.includes(snackbar)} autoHideDuration={6000}
+                          onClose={(_, reason) => reason !== 'clickaway' && handleDeleteSnackbar(snackbar)}>
                   <Alert
                       onClose={() => handleDeleteSnackbar(snackbar)}
                       severity={snackbar.severity}
