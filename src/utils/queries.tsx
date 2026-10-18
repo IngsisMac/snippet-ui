@@ -1,5 +1,5 @@
-import {useMutation, UseMutationResult, useQuery} from 'react-query';
-import {CreateSnippet, PaginatedSnippets, Snippet, UpdateSnippet} from './snippet.ts';
+import {useMutation, UseMutationResult, useQuery, UseQueryOptions} from 'react-query';
+import {CreateSnippet, PaginatedSnippets, Snippet, SnippetSort, UpdateSnippet} from './snippet.ts';
 import {CurrentUserProfile, SnippetOperations} from "./snippetOperations.ts";
 import {PaginatedUsers} from "./users.ts";
 import {TestCase} from "../types/TestCase.ts";
@@ -26,10 +26,19 @@ export const useRegisterCurrentUser = () => {
   return useMutation<void, Error, CurrentUserProfile>(profile => snippetOperations.registerCurrentUser(profile))
 }
 
-export const useGetSnippets = (page: number = 0, pageSize: number = 10, snippetName?: string) => {
+export const useGetSnippets = (page: number = 0, pageSize: number = 10, snippetName?: string, sort?: SnippetSort) => {
   const snippetOperations = useSnippetsOperations()
 
-  return useQuery<PaginatedSnippets, Error>(['listSnippets', page,pageSize,snippetName], () => snippetOperations.listSnippetDescriptors(page, pageSize,snippetName));
+  // El linteo de un snippet recién creado o editado corre en background (US #15): mientras haya
+  // filas en `pending` se vuelve a consultar, para que la columna de conformidad se actualice sola.
+  return useQuery<PaginatedSnippets, Error>(
+      ['listSnippets', page, pageSize, snippetName, sort?.field, sort?.direction],
+      () => snippetOperations.listSnippetDescriptors(page, pageSize, snippetName, sort),
+      {
+        refetchInterval: (data?: PaginatedSnippets) =>
+            data?.snippets.some(snippet => snippet.compliance === 'pending') ? 2000 : false,
+      }
+  );
 };
 
 export const useGetSnippetById = (id: string) => {
@@ -74,11 +83,15 @@ export const useShareSnippet = () => {
 };
 
 
-export const useGetTestCases = (snippetId: string) => {
+export const useGetTestCases = (
+    snippetId: string,
+    options?: Omit<UseQueryOptions<TestCase[] | undefined, Error>, 'queryKey' | 'queryFn' | 'enabled'>
+) => {
   const snippetOperations = useSnippetsOperations()
 
   return useQuery<TestCase[] | undefined, Error>(['testCases', snippetId], () => snippetOperations.getTestCases(snippetId), {
     enabled: !!snippetId,
+    ...options,
   });
 };
 

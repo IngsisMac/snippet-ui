@@ -11,13 +11,14 @@ import {
   TableCell,
   TableHead,
   TablePagination,
-  TableRow
+  TableRow,
+  TableSortLabel
 } from "@mui/material";
 import {AddSnippetModal} from "./AddSnippetModal.tsx";
 import {useRef, useState} from "react";
 import {Add, Search} from "@mui/icons-material";
 import {LoadingSnippetRow, SnippetRow} from "./SnippetRow.tsx";
-import {CreateSnippetWithLang, getFileLanguage, Snippet} from "../../utils/snippet.ts";
+import {CreateSnippetWithLang, getFileLanguage, Snippet, SnippetSort, SnippetSortField} from "../../utils/snippet.ts";
 import {usePaginationContext} from "../../contexts/paginationContext.tsx";
 import {useSnackbarContext} from "../../contexts/snackbarContext.tsx";
 import {useGetFileTypes} from "../../utils/queries.tsx";
@@ -27,10 +28,18 @@ type SnippetTableProps = {
   snippets?: Snippet[];
   loading: boolean;
   handleSearchSnippet: (snippetName: string) => void;
+  sort?: SnippetSort;
+  handleSortSnippets: (field: SnippetSortField) => void;
 }
 
+/** Columnas ordenables del listado (US #5). `author` sale del servicio de permisos, no se ordena. */
+const SORTABLE_COLUMNS: { label: string, field: SnippetSortField }[] = [
+  {label: 'Name', field: 'name'},
+  {label: 'Language', field: 'language'},
+]
+
 export const SnippetTable = (props: SnippetTableProps) => {
-  const {snippets, handleClickSnippet, loading,handleSearchSnippet} = props;
+  const {snippets, handleClickSnippet, loading, handleSearchSnippet, sort, handleSortSnippets} = props;
   const [addModalOpened, setAddModalOpened] = useState(false);
   const [popoverMenuOpened, setPopoverMenuOpened] = useState(false)
   const [snippet, setSnippet] = useState<CreateSnippetWithLang | undefined>()
@@ -96,10 +105,25 @@ export const SnippetTable = (props: SnippetTableProps) => {
         <Table size="medium" sx={{borderSpacing: "0 10px", borderCollapse: "separate"}}>
           <TableHead>
             <TableRow sx={{fontWeight: 'bold'}}>
-              <StyledTableCell sx={{fontWeight: "bold"}}>Name</StyledTableCell>
-              <StyledTableCell sx={{fontWeight: "bold"}}>Language</StyledTableCell>
+              {SORTABLE_COLUMNS.map(column => (
+                  <StyledTableCell key={column.field} sx={{fontWeight: "bold"}}
+                                   sortDirection={sort?.field === column.field ? sort.direction : false}>
+                    <TableSortLabel active={sort?.field === column.field}
+                                    direction={sort?.field === column.field ? sort.direction : 'asc'}
+                                    onClick={() => handleSortSnippets(column.field)}>
+                      {column.label}
+                    </TableSortLabel>
+                  </StyledTableCell>
+              ))}
               <StyledTableCell sx={{fontWeight: "bold"}}>Author</StyledTableCell>
-              <StyledTableCell sx={{fontWeight: "bold"}}>Conformance</StyledTableCell>
+              <StyledTableCell sx={{fontWeight: "bold"}}
+                               sortDirection={sort?.field === 'compliance' ? sort.direction : false}>
+                <TableSortLabel active={sort?.field === 'compliance'}
+                                direction={sort?.field === 'compliance' ? sort.direction : 'asc'}
+                                onClick={() => handleSortSnippets('compliance')}>
+                  Conformance
+                </TableSortLabel>
+              </StyledTableCell>
             </TableRow>
           </TableHead>
           <TableBody>{

@@ -4,7 +4,19 @@ import {highlight, languages} from "prismjs";
 import "prismjs/components/prism-clike";
 import "prismjs/components/prism-javascript";
 import "prismjs/themes/prism-okaidia.css";
-import {Alert, Box, CircularProgress, IconButton, Tooltip, Typography} from "@mui/material";
+import {
+  Alert,
+  AlertTitle,
+  Box,
+  CircularProgress,
+  IconButton,
+  List,
+  ListItem,
+  ListItemText,
+  TextField,
+  Tooltip,
+  Typography
+} from "@mui/material";
 import CloseIcon from '@mui/icons-material/Close';
 import {
   useUpdateSnippetById
@@ -49,11 +61,38 @@ const DownloadButton = ({snippet}: { snippet?: Snippet }) => {
   )
 }
 
+/**
+ * Reglas de linteo que el snippet no cumple (US #6). Vienen guardadas con el estado, así que se
+ * muestran sin volver a lintear; cuando el contenido cambia el backend las limpia y el snippet
+ * queda en `pending` hasta que el linteo asincrónico vuelva a correr.
+ */
+const LintFindings = ({snippet}: { snippet?: Snippet }) => {
+  if (!snippet) return null;
+  if (snippet.compliance === 'compliant') {
+    return <Alert sx={{mb: 2}} severity="success">This snippet complies with all your linting rules</Alert>
+  }
+  if (!snippet.findings?.length) return null;
+
+  return (
+      <Alert sx={{mb: 2}} severity="warning">
+        <AlertTitle>{snippet.findings.length} linting rule{snippet.findings.length > 1 ? 's' : ''} not met</AlertTitle>
+        <List dense disablePadding>
+          {snippet.findings.map((finding, index) => (
+              <ListItem key={`${finding.line}-${finding.column}-${index}`} disablePadding>
+                <ListItemText primary={`Line ${finding.line}:${finding.column} — ${finding.message}`}/>
+              </ListItem>
+          ))}
+        </List>
+      </Alert>
+  )
+}
+
 export const SnippetDetail = (props: SnippetDetailProps) => {
   const {id, handleCloseModal} = props;
   const [code, setCode] = useState(
       ""
   );
+  const [description, setDescription] = useState("");
   const [shareModalOppened, setShareModalOppened] = useState(false)
   const [deleteConfirmationModalOpen, setDeleteConfirmationModalOpen] = useState(false)
   const [testModalOpened, setTestModalOpened] = useState(false);
@@ -61,13 +100,24 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
   const {data: snippet, isLoading} = useGetSnippetById(id);
   const {mutate: shareSnippet, isLoading: loadingShare} = useShareSnippet()
   const {mutate: formatSnippet, isLoading: isFormatLoading, data: formatSnippetData} = useFormatSnippet(id)
-  const {mutate: updateSnippet, isLoading: isUpdateSnippetLoading} = useUpdateSnippetById({onSuccess: () => queryClient.invalidateQueries(['snippet', id])})
+  // Guardar cambia el contenido, vuelve el estado de linteo a pending y dispara la corrida de los
+  // tests en background (US #16): hay que refrescar el detalle, el listado y los test cases, o el
+  // modal de tests sigue mostrando los resultados de la versión anterior.
+  const {mutate: updateSnippet, isLoading: isUpdateSnippetLoading} = useUpdateSnippetById({
+    onSuccess: () => {
+      queryClient.invalidateQueries(['snippet', id])
+      queryClient.invalidateQueries(['testCases', id])
+      queryClient.invalidateQueries('listSnippets')
+    }
+  })
   const {createSnackbar} = useSnackbarContext()
 
   // Toda mutacion informa su resultado: sin esto un 403 (usuario con solo lectura) o un 400 pasan en silencio.
   const notifyError = (error: Error) => createSnackbar('error', error.message)
 
-  const handleSaveChanges = () => updateSnippet({id: id, updateSnippet: {content: code}}, {
+  const hasPendingChanges = snippet?.content !== code || (snippet?.description ?? "") !== description
+
+  const handleSaveChanges = () => updateSnippet({id: id, updateSnippet: {content: code, description}}, {
     onSuccess: () => createSnackbar('success', 'Snippet saved'),
     onError: notifyError,
   })
@@ -77,6 +127,7 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
   useEffect(() => {
     if (snippet) {
       setCode(snippet.content);
+      setDescription(snippet.description ?? "");
     }
   }, [snippet]);
 
@@ -132,7 +183,7 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                 </IconButton>
               </Tooltip>
               <Tooltip title={"Save changes"}>
-                <IconButton color={"primary"} onClick={handleSaveChanges} disabled={isUpdateSnippetLoading || snippet?.content === code} >
+                <IconButton color={"primary"} onClick={handleSaveChanges} disabled={isUpdateSnippetLoading || !hasPendingChanges} >
                   <Save />
                 </IconButton>
               </Tooltip>
@@ -142,6 +193,10 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                 </IconButton>
               </Tooltip>
             </Box>
+            <TextField label="Description" placeholder="What does this snippet do?" fullWidth multiline
+                       minRows={1} sx={{mb: 2}} value={description}
+                       onChange={e => setDescription(e.target.value)}/>
+            <LintFindings snippet={snippet}/>
             <Box display={"flex"} gap={2}>
               <Bòx flex={1} height={"fit-content"} overflow={"none"} minHeight={"500px"} bgcolor={'black'} color={'white'} code={code}>
                 <Editor
@@ -160,7 +215,7 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
             </Box>
             <Box pt={1} flex={1} marginTop={2}>
               <Alert severity="info">Output</Alert>
-              <SnippetExecution />
+              <SnippetExecution snippetId={id}/>
             </Box>
           </>
         }

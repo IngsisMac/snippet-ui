@@ -1,9 +1,10 @@
-import {CreateSnippet, PaginatedSnippets, Snippet, UpdateSnippet} from './snippet'
+import {CreateSnippet, PaginatedSnippets, Snippet, SnippetSort, UpdateSnippet} from './snippet'
 import {PaginatedUsers} from "./users.ts";
 import {TestCase} from "../types/TestCase.ts";
 import {TestCaseResult} from "./queries.tsx";
 import {FileType} from "../types/FileType.ts";
 import {Rule} from "../types/Rule.ts";
+import {ExecutionEvent} from "./execution.ts";
 
 export type CurrentUserProfile = {
   name: string;
@@ -11,7 +12,7 @@ export type CurrentUserProfile = {
 }
 
 export interface SnippetOperations {
-  listSnippetDescriptors(page: number,pageSize: number,sippetName?: string): Promise<PaginatedSnippets>
+  listSnippetDescriptors(page: number,pageSize: number,sippetName?: string,sort?: SnippetSort): Promise<PaginatedSnippets>
 
   createSnippet(createSnippet: CreateSnippet): Promise<Snippet>
 
@@ -40,6 +41,14 @@ export interface SnippetOperations {
   deleteSnippet(id: string): Promise<string>
 
   testSnippet(snippetId: string, testCase: Partial<TestCase>): Promise<TestCaseResult>
+
+  startExecution(snippetId: string, env?: Record<string, string>): Promise<string>
+
+  streamExecution(snippetId: string, executionId: string, onEvent: (event: ExecutionEvent) => void, signal: AbortSignal): Promise<void>
+
+  sendExecutionInput(snippetId: string, executionId: string, value: string): Promise<void>
+
+  cancelExecution(snippetId: string, executionId: string): Promise<void>
 
   getFileTypes(): Promise<FileType[]>
 

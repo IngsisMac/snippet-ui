@@ -10,13 +10,21 @@ export type SpringPage<T> = {
 
 export type ComplianceStatusResponse = 'PENDING' | 'COMPLIANT' | 'NOT_COMPLIANT' | 'FAILED'
 
+export type LintFindingResponse = {
+  message: string;
+  line: number;
+  column: number;
+}
+
 export type SnippetResponse = {
   id: string;
   name: string;
   ownerId: string;
   language: string;
   version: string;
+  description: string | null;
   content: string | null;
+  findings: LintFindingResponse[] | null;
   status: ComplianceStatusResponse;
   rulesVersion: number;
   findingsCount: number;
@@ -30,6 +38,13 @@ export type FileTypeResponse = {
   version: string;
 }
 
+export type TestRunResponse = {
+  status: 'PENDING' | 'PASSED' | 'FAILED';
+  actualOutputs: string[];
+  errors: string[];
+  executedAt: string | null;
+}
+
 export type TestCaseResponse = {
   id: string;
   snippetId: string;
@@ -37,6 +52,7 @@ export type TestCaseResponse = {
   inputs: string[];
   expectedOutputs: string[];
   env: Record<string, string> | null;
+  lastRun: TestRunResponse | null;
 }
 
 export type TestCaseExecutionResponse = {
@@ -53,6 +69,13 @@ export type RulesResponse = {
   rulesVersion: number;
   rules: Record<string, unknown>;
   updatedAt: string;
+}
+
+export type RuleDefinitionResponse = {
+  name: string;
+  kind: 'boolean' | 'number' | 'string';
+  defaultValue: string | number | boolean | null;
+  allowedValues: string[];
 }
 
 export type UserSummaryResponse = {

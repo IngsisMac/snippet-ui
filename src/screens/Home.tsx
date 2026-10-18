@@ -7,14 +7,16 @@ import {Drawer} from "@mui/material";
 import {useGetSnippets} from "../utils/queries.tsx";
 import {usePaginationContext} from "../contexts/paginationContext.tsx";
 import useDebounce from "../hooks/useDebounce.ts";
+import {SnippetSort, SnippetSortField} from "../utils/snippet.ts";
 
 const HomeScreen = () => {
   const {id: paramsId} = useParams<{ id: string }>();
   const [searchTerm, setSearchTerm] = useState('');
   const [snippetName, setSnippetName] = useState('');
   const [snippetId, setSnippetId] = useState<string | null>(null)
+  const [sort, setSort] = useState<SnippetSort | undefined>()
   const {page, page_size, count, handleChangeCount} = usePaginationContext()
-  const {data, isLoading} = useGetSnippets(page, page_size, snippetName)
+  const {data, isLoading} = useGetSnippets(page, page_size, snippetName, sort)
 
   useEffect(() => {
     if (data?.count !== undefined && data.count != count) {
@@ -43,10 +45,18 @@ const HomeScreen = () => {
     setSearchTerm(snippetName);
   };
 
+  // Click sobre la misma columna invierte la direccion; sobre otra, arranca ascendente.
+  const handleSortSnippets = (field: SnippetSortField) => {
+    setSort(current => current?.field === field
+        ? {field, direction: current.direction === 'asc' ? 'desc' : 'asc'}
+        : {field, direction: 'asc'});
+  };
+
   return (
       <>
         <SnippetTable loading={isLoading} handleClickSnippet={setSnippetId} snippets={data?.snippets}
-                      handleSearchSnippet={handleSearchSnippet}/>
+                      handleSearchSnippet={handleSearchSnippet} sort={sort}
+                      handleSortSnippets={handleSortSnippets}/>
         <Drawer open={!!snippetId} anchor={"right"} onClose={handleCloseModal}>
           {snippetId && <SnippetDetail handleCloseModal={handleCloseModal} id={snippetId}/>}
         </Drawer>

@@ -1,15 +1,16 @@
 import axios, {AxiosError, AxiosInstance} from 'axios'
 import autoBind from 'auto-bind'
 import {CurrentUserProfile, SnippetOperations} from '../snippetOperations'
-import {ComplianceEnum, CreateSnippet, PaginatedSnippets, Snippet, UpdateSnippet} from '../snippet'
+import {ComplianceEnum, CreateSnippet, PaginatedSnippets, Snippet, SnippetSort, UpdateSnippet} from '../snippet'
 import {PaginatedUsers} from "../users.ts";
-import {TestCase} from "../../types/TestCase.ts";
+import {TestCase, TestRunStatus} from "../../types/TestCase.ts";
 import {TestCaseResult} from "../queries.tsx";
 import {FileType} from "../../types/FileType.ts";
 import {Rule} from "../../types/Rule.ts";
 import {
   ComplianceStatusResponse,
   FileTypeResponse,
+  RuleDefinitionResponse,
   RulesResponse,
   SnippetResponse,
   SpringPage,
@@ -17,7 +18,8 @@ import {
   TestCaseResponse,
   UserSummaryResponse
 } from "./backendTypes.ts";
-import {configFromRules, FORMAT_RULE_CATALOG, LINT_RULE_CATALOG, rulesFromConfig} from "./ruleCatalog.ts";
+import {configFromRules, rulesFromConfig} from "./ruleCatalog.ts";
+import {ExecutionEvent} from "../execution.ts";
 
 export type AccessTokenProvider = () => Promise<string>
 
@@ -30,6 +32,11 @@ const COMPLIANCE: Record<ComplianceStatusResponse, ComplianceEnum> = {
 
 const DEFAULT_LANGUAGE_VERSION = '1.1'
 
+type RuleType = 'lint' | 'format'
+
+/** `compliance` es el nombre que usa la tabla; snippet-service lo acepta tal cual (US #5). */
+const sortParam = (sort?: SnippetSort) => sort ? `${sort.field},${sort.direction}` : undefined
+
 /**
  * Adaptador entre la UI de cátedra y los servicios propios. Habla con snippet-service y
  * permission-service a través del gateway (misma origin, `/api`) y traduce los contratos del
@@ -38,9 +45,14 @@ const DEFAULT_LANGUAGE_VERSION = '1.1'
  */
 export class HttpSnippetOperations implements SnippetOperations {
   private readonly http: AxiosInstance
+  private readonly baseUrl: string
+  private readonly getAccessToken: AccessTokenProvider
   private fileTypesCache?: Promise<FileTypeResponse[]>
+  private ruleCatalogCache: Partial<Record<RuleType, Promise<RuleDefinitionResponse[]>>> = {}
 
   constructor(baseUrl: string, getAccessToken: AccessTokenProvider) {
+    this.baseUrl = baseUrl
+    this.getAccessToken = getAccessToken
     this.http = axios.create({baseURL: baseUrl})
     this.http.interceptors.request.use(async config => {
       const token = await getAccessToken()
@@ -55,9 +67,9 @@ export class HttpSnippetOperations implements SnippetOperations {
     autoBind(this)
   }
 
-  async listSnippetDescriptors(page: number, pageSize: number, snippetName?: string): Promise<PaginatedSnippets> {
+  async listSnippetDescriptors(page: number, pageSize: number, snippetName?: string, sort?: SnippetSort): Promise<PaginatedSnippets> {
     const {data} = await this.http.get<SpringPage<SnippetResponse>>('/snippets', {
-      params: {page, size: pageSize, name: snippetName || undefined}
+      params: {page, size: pageSize, name: snippetName || undefined, sort: sortParam(sort)}
     })
     const fileTypes = await this.fileTypes()
     return {
@@ -76,6 +88,7 @@ export class HttpSnippetOperations implements SnippetOperations {
       language: createSnippet.language,
       version,
       content: createSnippet.content,
+      description: createSnippet.description || undefined,
     })
     return this.toSnippet(data, fileTypes)
   }
@@ -86,7 +99,10 @@ export class HttpSnippetOperations implements SnippetOperations {
   }
 
   async updateSnippetById(id: string, updateSnippet: UpdateSnippet): Promise<Snippet> {
-    const {data} = await this.http.put<SnippetResponse>(`/snippets/${id}`, {content: updateSnippet.content})
+    const {data} = await this.http.put<SnippetResponse>(`/snippets/${id}`, {
+      content: updateSnippet.content,
+      description: updateSnippet.description,
+    })
     return this.toSnippet(data, await this.fileTypes())
   }
 
@@ -115,27 +131,100 @@ export class HttpSnippetOperations implements SnippetOperations {
   }
 
   async getFormatRules(): Promise<Rule[]> {
-    const {data} = await this.http.get<RulesResponse>('/permissions/rules/format')
-    return rulesFromConfig(FORMAT_RULE_CATALOG, data.rules)
+    return this.readRules('format')
   }
 
   async getLintingRules(): Promise<Rule[]> {
-    const {data} = await this.http.get<RulesResponse>('/permissions/rules/lint')
-    return rulesFromConfig(LINT_RULE_CATALOG, data.rules)
+    return this.readRules('lint')
   }
 
   async modifyFormatRule(newRules: Rule[]): Promise<Rule[]> {
-    const {data} = await this.http.put<RulesResponse>('/permissions/rules/format', {
-      rules: configFromRules(FORMAT_RULE_CATALOG, newRules)
-    })
-    return rulesFromConfig(FORMAT_RULE_CATALOG, data.rules)
+    return this.writeRules('format', newRules)
   }
 
   async modifyLintingRule(newRules: Rule[]): Promise<Rule[]> {
-    const {data} = await this.http.put<RulesResponse>('/permissions/rules/lint', {
-      rules: configFromRules(LINT_RULE_CATALOG, newRules)
+    return this.writeRules('lint', newRules)
+  }
+
+  private async readRules(type: RuleType): Promise<Rule[]> {
+    const [catalog, {data}] = await Promise.all([
+      this.ruleCatalog(type),
+      this.http.get<RulesResponse>(`/permissions/rules/${type}`)
+    ])
+    return rulesFromConfig(catalog, data.rules)
+  }
+
+  private async writeRules(type: RuleType, newRules: Rule[]): Promise<Rule[]> {
+    const catalog = await this.ruleCatalog(type)
+    const {data} = await this.http.put<RulesResponse>(`/permissions/rules/${type}`, {
+      rules: configFromRules(catalog, newRules)
     })
-    return rulesFromConfig(LINT_RULE_CATALOG, data.rules)
+    return rulesFromConfig(catalog, data.rules)
+  }
+
+  /**
+   * El catálogo lo publica permission-service, que es también quien valida el PUT: así la pantalla
+   * de reglas nunca puede ofrecer una clave que el backend vaya a rechazar.
+   */
+  private ruleCatalog(type: RuleType): Promise<RuleDefinitionResponse[]> {
+    if (!this.ruleCatalogCache[type]) {
+      this.ruleCatalogCache[type] = this.http.get<RuleDefinitionResponse[]>(`/permissions/rules/catalog/${type}`)
+          .then(r => r.data)
+          .catch(error => {
+            this.ruleCatalogCache[type] = undefined
+            throw error
+          })
+    }
+    return this.ruleCatalogCache[type] as Promise<RuleDefinitionResponse[]>
+  }
+
+  async startExecution(snippetId: string, env: Record<string, string> = {}): Promise<string> {
+    const {data} = await this.http.post<{ executionId: string }>(`/snippets/${snippetId}/executions`, {env})
+    return data.executionId
+  }
+
+  /**
+   * `EventSource` no permite mandar el header `Authorization`, así que el stream se consume con
+   * `fetch` y se parsea el formato SSE a mano. Es poco código y evita tener que pasar el token
+   * por la URL, donde quedaría en logs e historial.
+   */
+  async streamExecution(
+      snippetId: string,
+      executionId: string,
+      onEvent: (event: ExecutionEvent) => void,
+      signal: AbortSignal
+  ): Promise<void> {
+    const token = await this.getAccessToken()
+    const response = await fetch(`${this.baseUrl}/snippets/${snippetId}/executions/${executionId}/stream`, {
+      headers: {Authorization: `Bearer ${token}`, Accept: 'text/event-stream'},
+      signal,
+    })
+    if (!response.ok || !response.body) {
+      throw new Error(`${response.status}: could not open the execution stream`)
+    }
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    for (;;) {
+      const {done, value} = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, {stream: true})
+      let separator = buffer.indexOf('\n\n')
+      while (separator >= 0) {
+        const event = parseSseEvent(buffer.slice(0, separator))
+        buffer = buffer.slice(separator + 2)
+        if (event) onEvent(event)
+        separator = buffer.indexOf('\n\n')
+      }
+    }
+  }
+
+  async sendExecutionInput(snippetId: string, executionId: string, value: string): Promise<void> {
+    await this.http.post(`/snippets/${snippetId}/executions/${executionId}/input`, {value})
+  }
+
+  async cancelExecution(snippetId: string, executionId: string): Promise<void> {
+    await this.http.delete(`/snippets/${snippetId}/executions/${executionId}`)
   }
 
   async formatSnippet(snippetId: string, content: string): Promise<string> {
@@ -205,8 +294,31 @@ export class HttpSnippetOperations implements SnippetOperations {
       extension: fileTypes.find(f => f.language === response.language)?.extension ?? response.language,
       compliance: COMPLIANCE[response.status] ?? 'pending',
       author: response.ownerId,
+      description: response.description ?? undefined,
+      findings: response.findings ?? undefined,
     }
   }
+}
+
+/** Un bloque SSE son líneas `campo: valor`; acá solo interesa `data`, que trae el JSON. */
+const parseSseEvent = (chunk: string): ExecutionEvent | undefined => {
+  const data = chunk
+      .split('\n')
+      .filter(line => line.startsWith('data:'))
+      .map(line => line.slice('data:'.length).trim())
+      .join('')
+  if (!data) return undefined
+  try {
+    return JSON.parse(data) as ExecutionEvent
+  } catch {
+    return undefined
+  }
+}
+
+const RUN_STATUS: Record<'PENDING' | 'PASSED' | 'FAILED', TestRunStatus> = {
+  PENDING: 'pending',
+  PASSED: 'passed',
+  FAILED: 'failed',
 }
 
 const toTestCase = (response: TestCaseResponse): TestCase => ({
@@ -214,4 +326,10 @@ const toTestCase = (response: TestCaseResponse): TestCase => ({
   name: response.name,
   input: response.inputs,
   output: response.expectedOutputs,
+  lastRun: response.lastRun ? {
+    status: RUN_STATUS[response.lastRun.status],
+    actualOutputs: response.lastRun.actualOutputs,
+    errors: response.lastRun.errors,
+    executedAt: response.lastRun.executedAt ?? undefined,
+  } : undefined,
 })
