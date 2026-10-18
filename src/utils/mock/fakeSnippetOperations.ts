@@ -1,4 +1,5 @@
 import {SnippetOperations} from '../snippetOperations'
+import {ExecutionEvent} from "../execution.ts";
 import {FakeSnippetStore} from './fakeSnippetStore'
 import {CreateSnippet, PaginatedSnippets, Snippet, UpdateSnippet} from '../snippet'
 import autoBind from 'auto-bind'
@@ -46,6 +47,29 @@ export class FakeSnippetOperations implements SnippetOperations {
     return new Promise(resolve => {
       setTimeout(() => resolve(this.fakeStore.updateSnippet(id, updateSnippet)), DELAY)
     })
+  }
+
+  // La ejecución interactiva necesita el runner real: el fake simula un programa que pide un
+  // dato y lo repite, suficiente para ver la pantalla sin levantar el backend.
+  startExecution(): Promise<string> {
+    return Promise.resolve('fake-execution')
+  }
+
+  async streamExecution(
+      _snippetId: string,
+      _executionId: string,
+      onEvent: (event: ExecutionEvent) => void
+  ): Promise<void> {
+    onEvent({type: 'output', line: 'Your name: '})
+    onEvent({type: 'input-request', prompt: 'Your name: '})
+  }
+
+  sendExecutionInput(): Promise<void> {
+    return Promise.resolve()
+  }
+
+  cancelExecution(): Promise<void> {
+    return Promise.resolve()
   }
 
   registerCurrentUser(): Promise<void> {
