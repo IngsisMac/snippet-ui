@@ -13,9 +13,9 @@ import {TestCase, TestRunStatus} from "../../types/TestCase.ts";
  * corrida automática que dispara un cambio de contenido todavía no terminó.
  */
 const RUN_ICON: Record<TestRunStatus, { title: string, icon: JSX.Element }> = {
-  passed: {title: 'Passed on the last run', icon: <CheckCircle color="success" fontSize="small"/>},
-  failed: {title: 'Failed on the last run', icon: <ErrorIcon color="error" fontSize="small"/>},
-  pending: {title: 'Queued after the last change', icon: <HourglassEmpty color="disabled" fontSize="small"/>},
+  passed: {title: 'Passed on the last run', icon: <CheckCircle data-testid="test-status-passed" color="success" fontSize="small"/>},
+  failed: {title: 'Failed on the last run', icon: <ErrorIcon data-testid="test-status-failed" color="error" fontSize="small"/>},
+  pending: {title: 'Queued after the last change', icon: <HourglassEmpty data-testid="test-status-pending" color="disabled" fontSize="small"/>},
 }
 
 const TestCaseTabLabel = ({testCase}: { testCase: TestCase }) => {
@@ -45,14 +45,23 @@ export const TestSnippetModal = ({snippetId, open, onClose}: TestSnippetModalPro
     });
     const {mutateAsync: postTestCase} = usePostTestCase(snippetId);
     const {mutateAsync: removeTestCase} = useRemoveTestCase(snippetId, {
-        onSuccess: () => queryClient.invalidateQueries(['testCases', snippetId])
+        onSuccess: () => {
+            setValue(0);
+            queryClient.invalidateQueries(['testCases', snippetId]);
+        }
     });
     const saveTestCase = (tc: Partial<TestCase>) =>
-        postTestCase(tc).then(() => queryClient.invalidateQueries(['testCases', snippetId]))
+        postTestCase(tc).then(() => {
+            setValue(0);
+            queryClient.invalidateQueries(['testCases', snippetId]);
+        });
 
     const handleChange = (_: SyntheticEvent, newValue: number) => {
         setValue(newValue);
     };
+
+    const hasCases = Boolean(testCases && testCases.length > 0);
+    const effectiveValue = (!hasCases && value === 0) ? 1 : value;
 
     return (
         <ModalWrapper open={open} onClose={onClose}>
@@ -64,7 +73,7 @@ export const TestSnippetModal = ({snippetId, open, onClose}: TestSnippetModalPro
                 <Tabs
                     orientation="vertical"
                     variant="scrollable"
-                    value={value}
+                    value={hasCases ? value : false}
                     onChange={handleChange}
                     aria-label="Vertical tabs example"
                     sx={{borderRight: 1, borderColor: 'divider', flexShrink: 0, minWidth: 160}}
@@ -72,19 +81,19 @@ export const TestSnippetModal = ({snippetId, open, onClose}: TestSnippetModalPro
                     {testCases?.map((testCase) => (
                         <Tab key={testCase.id} label={<TestCaseTabLabel testCase={testCase}/>}/>
                     ))}
-                    <IconButton disableRipple onClick={() => setValue((testCases?.length ?? 0) + 1)}>
+                    <IconButton data-testid="add-test-case-button" disableRipple onClick={() => setValue((testCases?.length ?? 0) + 1)}>
                         <AddRounded />
                     </IconButton>
                 </Tabs>
                 {testCases?.map((testCase, index) => (
-                    <TabPanel key={testCase.id} snippetId={snippetId} index={index} value={value} test={testCase}
+                    <TabPanel key={testCase.id} snippetId={snippetId} index={index} value={effectiveValue} test={testCase}
                               setTestCase={saveTestCase}
                               removeTestCase={(i) => removeTestCase(i)}
                     />
                 ))}
                 {/* La key remonta el panel vacío cada vez que se guarda un test: sin ella conserva el formulario anterior. */}
                 <TabPanel key={`new-${testCases?.length ?? 0}`} snippetId={snippetId}
-                          index={(testCases?.length ?? 0) + 1} value={value}
+                          index={(testCases?.length ?? 0) + 1} value={effectiveValue}
                           setTestCase={saveTestCase}
                 />
             </Box>

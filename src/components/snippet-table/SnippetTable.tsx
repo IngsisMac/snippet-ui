@@ -89,7 +89,7 @@ export const SnippetTable = (props: SnippetTableProps) => {
             <InputBase
                 sx={{ml: 1, flex: 1}}
                 placeholder="Search FileType"
-                inputProps={{'aria-label': 'search'}}
+                inputProps={{'aria-label': 'search', 'data-testid': 'search-snippet-input'}}
                 onChange={e => handleSearchSnippet(e.target.value)}
             />
             <IconButton type="button" sx={{p: '10px'}} aria-label="search">
@@ -97,6 +97,7 @@ export const SnippetTable = (props: SnippetTableProps) => {
             </IconButton>
           </Box>
           <Button ref={popoverRef} variant="contained" disableRipple sx={{boxShadow: 0}}
+                  data-testid={"add-snippet-button"}
                   onClick={() => setPopoverMenuOpened(true)}>
             <Add/>
             Add Snippet

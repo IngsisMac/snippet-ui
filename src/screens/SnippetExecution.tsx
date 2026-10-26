@@ -93,7 +93,7 @@ export const SnippetExecution = ({snippetId}: SnippetExecutionProps) => {
         <Box display="flex" gap={1} py={1} alignItems="center">
           <Tooltip title={"Run"}>
             <span>
-              <Button size="small" variant="contained" disableElevation startIcon={<PlayArrow/>}
+              <Button data-testid="execution-run-button" size="small" variant="contained" disableElevation startIcon={<PlayArrow/>}
                       disabled={isRunning} onClick={run}>
                 Run
               </Button>
@@ -101,7 +101,7 @@ export const SnippetExecution = ({snippetId}: SnippetExecutionProps) => {
           </Tooltip>
           <Tooltip title={"Stop"}>
             <span>
-              <Button size="small" variant="outlined" color="error" startIcon={<StopRounded/>}
+              <Button data-testid="execution-stop-button" size="small" variant="outlined" color="error" startIcon={<StopRounded/>}
                       disabled={!isRunning} onClick={stop}>
                 Stop
               </Button>
@@ -110,11 +110,11 @@ export const SnippetExecution = ({snippetId}: SnippetExecutionProps) => {
           {status === 'running' && <CircularProgress size={18}/>}
         </Box>
         <Bòx flex={1} overflow={"auto"} minHeight={200} bgcolor={'black'} color={'white'} code={lines.join("\n")}>
-          <pre style={{fontFamily: "monospace", fontSize: 17, margin: 0, padding: 10, whiteSpace: "pre-wrap"}}>
+          <pre data-testid="execution-console" style={{fontFamily: "monospace", fontSize: 17, margin: 0, padding: 10, whiteSpace: "pre-wrap"}}>
             {lines.join("\n")}
           </pre>
         </Bòx>
-        <OutlinedInput onKeyDown={handleEnter} value={input} onChange={e => setInput(e.target.value)}
+        <OutlinedInput data-testid="execution-input" onKeyDown={handleEnter} value={input} onChange={e => setInput(e.target.value)}
                        disabled={status !== 'waiting-input'}
                        placeholder={status === 'waiting-input' ? "The program is waiting for input" : "Run the snippet to send input"}
                        fullWidth/>

@@ -9,7 +9,16 @@ export default defineConfig({
   e2e: {
     chromeWebSecurity: false,
     experimentalModifyObstructiveThirdPartyCode: true,
-    setupNodeEvents(_, config) {
+    setupNodeEvents(on, config) {
+      on('before:browser:launch', (browser, launchOptions) => {
+        if (browser.family === 'chromium') {
+          launchOptions.args.push('--disable-gpu');
+          launchOptions.args.push('--disable-dev-shm-usage');
+          launchOptions.args.push('--no-sandbox');
+        }
+        return launchOptions;
+      });
+
       config.env = {
         ...process.env,
         auth0_domain: process.env.VITE_AUTH0_DOMAIN,

@@ -64,6 +64,7 @@ const LintingRulesList = () => {
           return (
             <ListItem
               key={rule.name}
+              data-testid={`lint-rule-${rule.name}`}
               disablePadding
               style={{height: 40}}
             >
@@ -102,7 +103,7 @@ const LintingRulesList = () => {
           )
         })}
       </List>
-      <Button disabled={isLoading} variant={"contained"} onClick={() => mutateAsync(rules ?? [])}>Save</Button>
+      <Button data-testid="save-linting-rules-button" disabled={isLoading} variant={"contained"} onClick={() => mutateAsync(rules ?? [])}>Save</Button>
     </Card>
 
   );
