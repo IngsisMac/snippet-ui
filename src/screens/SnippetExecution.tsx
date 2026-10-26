@@ -39,6 +39,7 @@ export const SnippetExecution = ({snippetId}: SnippetExecutionProps) => {
     setStatus('running')
     const controller = new AbortController()
     abortController.current = controller
+    let receivedEnd = false
     try {
       const id = await operations.startExecution(snippetId)
       executionId.current = id
@@ -46,10 +47,15 @@ export const SnippetExecution = ({snippetId}: SnippetExecutionProps) => {
         if (event.type === 'output') appendLine(event.line)
         if (event.type === 'input-request') setStatus('waiting-input')
         if (event.type === 'end') {
+          receivedEnd = true
           event.errors.forEach(error => appendLine(`! ${error}`))
           setStatus('finished')
         }
       }, controller.signal)
+      if (!receivedEnd && !controller.signal.aborted) {
+        appendLine('! Stream disconnected')
+        setStatus('finished')
+      }
     } catch (error) {
       if (!controller.signal.aborted) {
         createSnackbar('error', (error as Error).message)
