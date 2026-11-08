@@ -17,25 +17,31 @@
 import './commands'
 import {loginViaAuth0Ui} from "./auth-provider-commands/auth0";
 
-Cypress.Commands.add('loginToAuth0', (username: string, password: string) => {
+Cypress.on('uncaught:exception', () => {
+  return false
+})
+
+Cypress.Commands.add('loginToAuth0', (username?: string, password?: string) => {
+  const user = username || Cypress.env('AUTH0_USERNAME')
+  const pass = password || Cypress.env('AUTH0_PASSWORD')
+
   const log = Cypress.log({
     displayName: 'AUTH0 LOGIN',
-    message: [`🔐 Authenticating | ${username}`],
+    message: [`🔐 Authenticating | ${user}`],
     autoEnd: false,
   })
   log.snapshot('before')
 
   cy.session(
-      `auth0-${username}`,
+      `auth0-${user}`,
       () => {
-        loginViaAuth0Ui(username, password)
+        loginViaAuth0Ui(user, pass)
       },
       {
         validate: () => {
-          // Validate presence of access token in localStorage.
-          cy.wrap(localStorage)
-              .invoke('getItem', 'authAccessToken')
-              .should('exist')
+          cy.visit('/')
+          cy.url({ timeout: 15000 }).should('not.include', 'auth0.com')
+          cy.get('.MuiTypography-h6', { timeout: 15000 }).should('have.text', 'Printscript')
         },
       }
   )

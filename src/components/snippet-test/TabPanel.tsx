@@ -43,6 +43,7 @@ export const TabPanel = ({snippetId, value, index, test: initialTest, setTestCas
                     <Box display="flex" flexDirection="column" gap={1}>
                         <Typography fontWeight="bold">Name</Typography>
                         <TextField size="small" value={testData?.name}
+                                   inputProps={{'data-testid': 'test-case-name-input'}}
                                    onChange={(e) => setTestData({...testData, name: e.target.value})}/>
                     </Box>
                     <Box display="flex" flexDirection="column" gap={1}>
@@ -62,6 +63,7 @@ export const TabPanel = ({snippetId, value, index, test: initialTest, setTestCas
                             renderInput={(params) => (
                                 <TextField
                                     {...params}
+                                    inputProps={{...params.inputProps, 'data-testid': 'test-case-input-input'}}
                                 />
                             )}
                             options={[]}
@@ -84,37 +86,38 @@ export const TabPanel = ({snippetId, value, index, test: initialTest, setTestCas
                             renderInput={(params) => (
                                 <TextField
                                     {...params}
+                                    inputProps={{...params.inputProps, 'data-testid': 'test-case-output-input'}}
                                 />
                             )}
                             options={[]}
                         />
                     </Box>
                     {lastRun?.status === 'pending' && (
-                        <Alert severity="info">Queued: the snippet changed and this test is running in the background</Alert>
+                        <Alert data-testid="test-case-pending-alert" severity="info">Queued: the snippet changed and this test is running in the background</Alert>
                     )}
                     {lastRun?.status === 'failed' && lastRun.errors.length > 0 && (
-                        <Alert severity="error">{lastRun.errors.join(' · ')}</Alert>
+                        <Alert data-testid="test-case-failed-alert" severity="error">{lastRun.errors.join(' · ')}</Alert>
                     )}
                     {lastRun?.status === 'failed' && lastRun.errors.length === 0 && (
-                        <Alert severity="warning">Last run produced {lastRun.actualOutputs.join(' · ') || 'no output'}</Alert>
+                        <Alert data-testid="test-case-failed-alert" severity="warning">Last run produced {lastRun.actualOutputs.join(' · ') || 'no output'}</Alert>
                     )}
                     <Box display="flex" flexDirection="row" gap={1}>
                         {
                             (testData?.id && removeTestCase) && (
-                            <Button onClick={() => removeTestCase(testData?.id ?? "")} variant={"outlined"} color={"error"}
+                            <Button data-testid="test-case-remove-button" onClick={() => removeTestCase(testData?.id ?? "")} variant={"outlined"} color={"error"}
                                     startIcon={<Delete/>}>
                                 Remove
                             </Button>)
                         }
-                        <Button disabled={!testData?.name} onClick={() => setTestCase(testData ?? {})} variant={"outlined"} startIcon={<Save/>}>
+                        <Button data-testid="test-case-save-button" disabled={!testData?.name} onClick={() => setTestCase(testData ?? {})} variant={"outlined"} startIcon={<Save/>}>
                             Save
                         </Button>
-                        <Button onClick={runTest} variant={"contained"} startIcon={<BugReport/>}
+                        <Button data-testid="test-case-run-button" onClick={runTest} variant={"contained"} startIcon={<BugReport/>}
                                 disableElevation>
                             Test
                         </Button>
-                        {data && (data === "success" ? <Chip label="Pass" color="success"/> :
-                            <Chip label="Fail" color="error"/>)}
+                        {data && (data === "success" ? <Chip data-testid="test-case-result-pass" label="Pass" color="success"/> :
+                            <Chip data-testid="test-case-result-fail" label="Fail" color="error"/>)}
                     </Box>
                 </Box>
             )}

@@ -64,6 +64,7 @@ const FormattingRulesList = () => {
           return (
             <ListItem
               key={rule.name}
+              data-testid={`format-rule-${rule.name}`}
               disablePadding
               style={{height: 40}}
             >
@@ -102,7 +103,7 @@ const FormattingRulesList = () => {
           )
         })}
       </List>
-      <Button disabled={isLoading} variant={"contained"} onClick={() => mutateAsync(rules ?? [])}>Save</Button>
+      <Button data-testid="save-formatting-rules-button" disabled={isLoading} variant={"contained"} onClick={() => mutateAsync(rules ?? [])}>Save</Button>
     </Card>
 
   );

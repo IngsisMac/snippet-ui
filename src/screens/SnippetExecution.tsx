@@ -39,6 +39,7 @@ export const SnippetExecution = ({snippetId}: SnippetExecutionProps) => {
     setStatus('running')
     const controller = new AbortController()
     abortController.current = controller
+    let receivedEnd = false
     try {
       const id = await operations.startExecution(snippetId)
       executionId.current = id
@@ -46,10 +47,15 @@ export const SnippetExecution = ({snippetId}: SnippetExecutionProps) => {
         if (event.type === 'output') appendLine(event.line)
         if (event.type === 'input-request') setStatus('waiting-input')
         if (event.type === 'end') {
+          receivedEnd = true
           event.errors.forEach(error => appendLine(`! ${error}`))
           setStatus('finished')
         }
       }, controller.signal)
+      if (!receivedEnd && !controller.signal.aborted) {
+        appendLine('! Stream disconnected')
+        setStatus('finished')
+      }
     } catch (error) {
       if (!controller.signal.aborted) {
         createSnackbar('error', (error as Error).message)
@@ -87,7 +93,7 @@ export const SnippetExecution = ({snippetId}: SnippetExecutionProps) => {
         <Box display="flex" gap={1} py={1} alignItems="center">
           <Tooltip title={"Run"}>
             <span>
-              <Button size="small" variant="contained" disableElevation startIcon={<PlayArrow/>}
+              <Button data-testid="execution-run-button" size="small" variant="contained" disableElevation startIcon={<PlayArrow/>}
                       disabled={isRunning} onClick={run}>
                 Run
               </Button>
@@ -95,7 +101,7 @@ export const SnippetExecution = ({snippetId}: SnippetExecutionProps) => {
           </Tooltip>
           <Tooltip title={"Stop"}>
             <span>
-              <Button size="small" variant="outlined" color="error" startIcon={<StopRounded/>}
+              <Button data-testid="execution-stop-button" size="small" variant="outlined" color="error" startIcon={<StopRounded/>}
                       disabled={!isRunning} onClick={stop}>
                 Stop
               </Button>
@@ -104,11 +110,11 @@ export const SnippetExecution = ({snippetId}: SnippetExecutionProps) => {
           {status === 'running' && <CircularProgress size={18}/>}
         </Box>
         <Bòx flex={1} overflow={"auto"} minHeight={200} bgcolor={'black'} color={'white'} code={lines.join("\n")}>
-          <pre style={{fontFamily: "monospace", fontSize: 17, margin: 0, padding: 10, whiteSpace: "pre-wrap"}}>
+          <pre data-testid="execution-console" style={{fontFamily: "monospace", fontSize: 17, margin: 0, padding: 10, whiteSpace: "pre-wrap"}}>
             {lines.join("\n")}
           </pre>
         </Bòx>
-        <OutlinedInput onKeyDown={handleEnter} value={input} onChange={e => setInput(e.target.value)}
+        <OutlinedInput data-testid="execution-input" onKeyDown={handleEnter} value={input} onChange={e => setInput(e.target.value)}
                        disabled={status !== 'waiting-input'}
                        placeholder={status === 'waiting-input' ? "The program is waiting for input" : "Run the snippet to send input"}
                        fullWidth/>

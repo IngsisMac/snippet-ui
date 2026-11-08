@@ -44,7 +44,7 @@ const DownloadButton = ({snippet}: { snippet?: Snippet }) => {
 
   return (
     <Tooltip title={"Download"}>
-      <IconButton sx={{
+      <IconButton data-testid="download-button" aria-label="Download" sx={{
         cursor: "pointer"
       }}>
         <a download={`${snippet.name}.${snippet.extension}`} target="_blank"
@@ -151,7 +151,7 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
   return (
       <Box p={4} minWidth={'60vw'}>
         <Box width={'100%'} p={2} display={'flex'} justifyContent={'flex-end'}>
-          <CloseIcon style={{cursor: "pointer"}} onClick={handleCloseModal}/>
+          <CloseIcon data-testid="close-drawer-button" style={{cursor: "pointer"}} onClick={handleCloseModal}/>
         </Box>
         {
           isLoading ? (<>
@@ -161,34 +161,28 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
             <Typography variant="h4" fontWeight={"bold"}>{snippet?.name ?? "Snippet"}</Typography>
             <Box display="flex" flexDirection="row" gap="8px" padding="8px">
               <Tooltip title={"Share"}>
-                <IconButton onClick={() => setShareModalOppened(true)}>
+                <IconButton aria-label="Share" data-testid="share-button" onClick={() => setShareModalOppened(true)}>
                   <Share/>
                 </IconButton>
               </Tooltip>
               <Tooltip title={"Test"}>
-                <IconButton onClick={() => setTestModalOpened(true)}>
+                <IconButton aria-label="Test" data-testid="test-button" onClick={() => setTestModalOpened(true)}>
                   <BugReport/>
                 </IconButton>
               </Tooltip>
               <DownloadButton snippet={snippet}/>
-              {/*<Tooltip title={runSnippet ? "Stop run" : "Run"}>*/}
-              {/*  <IconButton onClick={() => setRunSnippet(!runSnippet)}>*/}
-              {/*    {runSnippet ? <StopRounded/> : <PlayArrow/>}*/}
-              {/*  </IconButton>*/}
-              {/*</Tooltip>*/}
-              {/* TODO: we can implement a live mode*/}
               <Tooltip title={"Format"}>
-                <IconButton onClick={handleFormat} disabled={isFormatLoading}>
+                <IconButton aria-label="Format" data-testid="format-button" onClick={handleFormat} disabled={isFormatLoading}>
                   <ReadMoreIcon />
                 </IconButton>
               </Tooltip>
               <Tooltip title={"Save changes"}>
-                <IconButton color={"primary"} onClick={handleSaveChanges} disabled={isUpdateSnippetLoading || !hasPendingChanges} >
+                <IconButton aria-label="Save changes" data-testid="save-button" color={"primary"} onClick={handleSaveChanges} disabled={isUpdateSnippetLoading || !hasPendingChanges} >
                   <Save />
                 </IconButton>
               </Tooltip>
               <Tooltip title={"Delete"}>
-                <IconButton onClick={() => setDeleteConfirmationModalOpen(true)} >
+                <IconButton aria-label="Delete" data-testid="delete-button" onClick={() => setDeleteConfirmationModalOpen(true)} >
                   <Delete color={"error"} />
                 </IconButton>
               </Tooltip>
@@ -202,6 +196,7 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                 <Editor
                     value={code}
                     padding={10}
+                    data-testid={"snippet-detail-editor"}
                     onValueChange={(code) => setCode(code)}
                     highlight={(code) => highlight(code, languages.js, "javascript")}
                     maxLength={1000}
