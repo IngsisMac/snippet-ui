@@ -129,18 +129,18 @@ export const SnippetTable = (props: SnippetTableProps) => {
             </IconButton>
           </Box>
           <Box sx={{display: 'flex', gap: 1}}>
-            <TextField select size="small" label="Show" value={scope} sx={{minWidth: 150, background: 'white'}}
+            <TextField select size="small" label="Show" value={scope} sx={{minWidth: 150, '& .MuiOutlinedInput-root': {background: 'white'}}}
                        inputProps={{'data-testid': 'scope-filter'}}
                        onChange={e => onScopeChange(e.target.value as SnippetScope)}>
               {SCOPE_OPTIONS.map(o => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
             </TextField>
-            <TextField select size="small" label="Language" value={language} sx={{minWidth: 150, background: 'white'}}
+            <TextField select size="small" label="Language" value={language} sx={{minWidth: 150, '& .MuiOutlinedInput-root': {background: 'white'}}}
                        inputProps={{'data-testid': 'language-filter'}}
                        onChange={e => onLanguageChange(e.target.value)}>
               <MenuItem value="">All</MenuItem>
               {languagesOf(fileTypes ?? []).map(name => <MenuItem key={name} value={name}>{name}</MenuItem>)}
             </TextField>
-            <TextField select size="small" label="Conformance" value={compliance} sx={{minWidth: 160, background: 'white'}}
+            <TextField select size="small" label="Conformance" value={compliance} sx={{minWidth: 160, '& .MuiOutlinedInput-root': {background: 'white'}}}
                        inputProps={{'data-testid': 'compliance-filter'}}
                        onChange={e => onComplianceChange(e.target.value as ComplianceEnum | '')}>
               <MenuItem value="">All</MenuItem>

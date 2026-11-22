@@ -116,51 +116,43 @@ export const AddSnippetModal = ({open, onClose, defaultSnippet}: {
                 <Input onChange={e => setDescription(e.target.value)} value={description} id="description"
                        placeholder="What does this snippet do?" multiline sx={{width: '100%'}}/>
             </Box>
-            <Box sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '16px'
-            }}>
-                <InputLabel htmlFor="name">Language</InputLabel>
-                <Select
-                    labelId="demo-simple-select-label"
-                    id="demo-simple-select"
-                    value={language}
-                    label="Age"
-                    onChange={(e: SelectChangeEvent<string>) => {
-                        setLanguage(e.target.value)
-                        setVersion("")
-                    }}
-                    sx={{width: '50%'}}
-                >
-                    {
-                        languagesOf(fileTypes ?? []).map(name => (
-                            <MenuItem data-testid={`menu-option-${name}`} key={name}
-                                      value={name}>{capitalize(name)}</MenuItem>
-                        ))
-                    }
-                </Select>
-            </Box>
-            <Box sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '16px'
-            }}>
-                <InputLabel id="version-select-label">Version</InputLabel>
-                <Select
-                    labelId="version-select-label"
-                    id="version-select"
-                    data-testid="version-select"
-                    value={effectiveVersion}
-                    onChange={(e: SelectChangeEvent<string>) => setVersion(e.target.value)}
-                    sx={{width: '50%'}}
-                >
-                    {
-                        versions.map(v => (
-                            <MenuItem data-testid={`version-option-${v}`} key={v} value={v}>{v}</MenuItem>
-                        ))
-                    }
-                </Select>
+            {/* Lenguaje y versión van en la misma fila: con el selector de versión en su propia fila el
+                modal crecía lo suficiente para dejar fuera de pantalla el botón de guardar. */}
+            <Box sx={{display: 'flex', flexDirection: 'row', gap: '24px'}}>
+                <Box sx={{display: 'flex', flexDirection: 'column', gap: '16px', width: '50%'}}>
+                    <InputLabel htmlFor="demo-simple-select">Language</InputLabel>
+                    <Select
+                        id="demo-simple-select"
+                        value={language}
+                        onChange={(e: SelectChangeEvent<string>) => {
+                            setLanguage(e.target.value)
+                            setVersion("")
+                        }}
+                    >
+                        {
+                            languagesOf(fileTypes ?? []).map(name => (
+                                <MenuItem data-testid={`menu-option-${name}`} key={name}
+                                          value={name}>{capitalize(name)}</MenuItem>
+                            ))
+                        }
+                    </Select>
+                </Box>
+                <Box sx={{display: 'flex', flexDirection: 'column', gap: '16px', width: '50%'}}>
+                    <InputLabel id="version-select-label">Version</InputLabel>
+                    <Select
+                        labelId="version-select-label"
+                        id="version-select"
+                        data-testid="version-select"
+                        value={effectiveVersion}
+                        onChange={(e: SelectChangeEvent<string>) => setVersion(e.target.value)}
+                    >
+                        {
+                            versions.map(v => (
+                                <MenuItem data-testid={`version-option-${v}`} key={v} value={v}>{v}</MenuItem>
+                            ))
+                        }
+                    </Select>
+                </Box>
             </Box>
             <InputLabel>Code Snippet</InputLabel>
             <Box width={"100%"} sx={{

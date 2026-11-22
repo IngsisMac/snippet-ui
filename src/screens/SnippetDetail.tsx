@@ -241,7 +241,7 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
             <Typography fontWeight={"bold"} mb={2} variant="h4">Loading...</Typography>
             <CircularProgress/>
           </>) : <>
-            <TextField variant="standard" label="Name" value={name} error={!nameIsValid} disabled={!writable}
+            <TextField variant="standard" placeholder="Name" value={name} error={!nameIsValid} disabled={!writable}
                        helperText={nameIsValid ? undefined : "The name cannot be empty"}
                        inputProps={{'data-testid': 'snippet-name-input', 'aria-label': 'Snippet name'}}
                        InputProps={{sx: {fontSize: '2.125rem', fontWeight: 'bold'}}}
@@ -284,7 +284,7 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                      onChange={e => handleLoadFromFile(e?.target)}/>
             </Box>
             {!writable && (
-                <Alert data-testid="read-only-alert" severity="info" sx={{mb: 2}}>
+                <Alert data-testid="read-only-alert" severity="info" sx={{mb: 1, py: 0}}>
                   This snippet was shared with you as read-only: you can view, run, format and download it.
                 </Alert>
             )}

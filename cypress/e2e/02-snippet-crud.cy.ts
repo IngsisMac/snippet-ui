@@ -94,7 +94,7 @@ describe('Snippet CRUD Lifecycle (US #1, #2, #3, #4, #13)', () => {
 
     // Drawer should display details
     cy.get('#snippet-detail-editor', { timeout: 10000 }).should('be.visible');
-    cy.contains(editorSnippetName).should('be.visible');
+    cy.get('[data-testid="snippet-name-input"]').should('have.value', editorSnippetName);
 
     // Save changes button should initially be disabled
     cy.get('[data-testid="save-button"]').should('be.disabled');

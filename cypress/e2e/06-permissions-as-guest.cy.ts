@@ -86,7 +86,9 @@ describe('Permisos de un invitado con solo lectura (US #7)', () => {
   const abrirDetalleCompartido = () => {
     cy.get('[data-testid="search-snippet-input"]').clear().type(snippetCompartido)
     cy.contains(snippetCompartido, { timeout: 15000 }).click()
-    cy.get('#snippet-detail-editor', { timeout: 15000 }).should('be.visible')
+    // El aviso de solo lectura suma altura al detalle: con la ventana chica de Cypress el editor
+    // queda bajo el pliegue del drawer, así que se lo trae a la vista antes de mirarlo.
+    cy.get('#snippet-detail-editor', { timeout: 15000 }).scrollIntoView().should('be.visible')
   }
 
   it('la dueña comparte un snippet con el invitado y lo ve en su propio listado', () => {
@@ -158,6 +160,7 @@ describe('Permisos de un invitado con solo lectura (US #7)', () => {
       // El identificador del editor esta sobre el <textarea> real (prop `textareaId` de
       // react-simple-code-editor), asi que el contenido se verifica con `have.value`.
       cy.get('#snippet-detail-editor', { timeout: 15000 })
+          .scrollIntoView()
           .should('be.visible')
           .and('have.value', 'let answer: number = 42;\nprintln(answer);')
       cy.get('[data-testid="close-drawer-button"]').click()
