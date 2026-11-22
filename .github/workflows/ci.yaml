@@ -62,3 +62,40 @@ jobs:
             VITE_AUTH0_AUDIENCE=${{ secrets.VITE_AUTH0_AUDIENCE }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Sin este aviso la imagen queda en GHCR y nadie la despliega: el deploy solo salia al
+      # pushear snippet-infra, que no sabe nada de las imagenes nuevas. Los tres servicios ya
+      # avisan desde el CD reutilizable de snippet-plugins, que no sirve acá porque compila un
+      # jar con Gradle; por eso el paso esta duplicado en lugar de reutilizado.
+      #
+      # La rama por defecto de este repositorio es `master`, asi que prod sale de ahi y no de
+      # `main`, al contrario de los servicios.
+      #
+      # El contexto `secrets` no existe en el `if` de un paso, asi que la presencia del token se
+      # chequea adentro del script: condicionarlo en el `if` daria siempre falso y el aviso no
+      # saldria nunca, en silencio.
+      - name: Trigger snippet-infra deployment
+        if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+        continue-on-error: true
+        env:
+          TOKEN: ${{ secrets.INFRA_DISPATCH_TOKEN || secrets.GHCR_TOKEN }}
+          TARGET_ENV: ${{ github.ref == 'refs/heads/dev' && 'dev' || 'prod' }}
+          TAG_VAL: ${{ github.ref == 'refs/heads/dev' && 'dev' || 'latest' }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::warning title=Deploy not triggered::Neither INFRA_DISPATCH_TOKEN nor GHCR_TOKEN is set, so snippet-infra was not notified. The image was pushed to GHCR but nothing will deploy it: run the deploy workflow in snippet-infra by hand."
+            exit 0
+          fi
+          echo "Notifying snippet-infra to deploy stack for environment $TARGET_ENV..."
+          code=$(curl -s -o /tmp/dispatch.out -w '%{http_code}' -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $TOKEN" \
+            "https://api.github.com/repos/$OWNER/snippet-infra/dispatches" \
+            -d "{\"event_type\": \"deploy-stack\", \"client_payload\": {\"environment\": \"$TARGET_ENV\", \"tag\": \"$TAG_VAL\"}}")
+          if [ "$code" = "204" ]; then
+            echo "snippet-infra notified (HTTP 204)."
+          else
+            echo "::warning title=Deploy not triggered::The repository_dispatch to snippet-infra answered HTTP $code instead of 204. A 404 usually means the token cannot see snippet-infra or lacks the 'contents: write' scope; a 401 means it is invalid or expired."
+            cat /tmp/dispatch.out || true
+          fi

@@ -138,7 +138,10 @@ export const AddSnippetModal = ({open, onClose, defaultSnippet}: {
                 <Editor
                     value={code}
                     padding={10}
-                    data-testid={"add-snippet-code-editor"}
+                    // `react-simple-code-editor` manda las props que no conoce al <div> contenedor, así que un
+                    // `data-testid` nunca llegaría al <textarea>. `textareaId` sí es una prop propia de la
+                    // librería y se aplica al textarea real, que es el que tiene el valor del código.
+                    textareaId={"add-snippet-code-editor"}
                     onValueChange={(code) => setCode(code)}
                     highlight={(code) => highlight(code, languages.js, 'javascript')}
                     style={{

@@ -1,4 +1,4 @@
-describe('Rules Catalog and Snippet Sharing (US #7, #11, #12, #14, #15, #2)', () => {
+describe('Rules Catalog and Snippet Sharing (US #7, #11, #12, #14, #15)', () => {
   const timestamp = Date.now();
   const shareSnippetName = `Shareable E2E ${timestamp}`;
 
@@ -53,6 +53,48 @@ describe('Rules Catalog and Snippet Sharing (US #7, #11, #12, #14, #15, #2)', ()
       cy.get('[data-testid="save-linting-rules-button"]').click();
       cy.wait('@saveLintRules');
     });
+
+    // Las reglas de formato tienen su propio PUT y su propio boton de guardar: sin esto la mitad
+    // de formato de US #11 no estaba cubierta por interfaz.
+    cy.log('Reglas de formato: editar, guardar y volver a leer');
+    cy.get('[data-testid^="format-rule-"]')
+      .first()
+      .find('input[type="checkbox"]')
+      .then(($checkbox) => {
+        const estabaActiva = $checkbox.prop('checked');
+
+        cy.wrap($checkbox).click({ force: true });
+        cy.get('[data-testid^="format-rule-"]')
+          .first()
+          .find('input[type="checkbox"]')
+          .should('have.prop', 'checked', !estabaActiva);
+
+        cy.intercept('PUT', '/api/permissions/rules/format').as('saveFormatRules');
+        cy.get('[data-testid="save-formatting-rules-button"]').click();
+        cy.wait('@saveFormatRules').its('response.statusCode').should('eq', 200);
+
+        // Recargar es lo unico que prueba que se guardo: el estado de la pantalla no alcanza
+        cy.reload();
+        cy.wait(['@getLintRules', '@getFormatRules']);
+        cy.get('[data-testid^="format-rule-"]')
+          .first()
+          .find('input[type="checkbox"]')
+          .should('have.prop', 'checked', !estabaActiva);
+
+        // Se deja el ambiente como estaba
+        cy.get('[data-testid^="format-rule-"]')
+          .first()
+          .find('input[type="checkbox"]')
+          .click({ force: true });
+        cy.get('[data-testid="save-formatting-rules-button"]').click();
+        cy.wait('@saveFormatRules').its('response.statusCode').should('eq', 200);
+        cy.reload();
+        cy.wait(['@getLintRules', '@getFormatRules']);
+        cy.get('[data-testid^="format-rule-"]')
+          .first()
+          .find('input[type="checkbox"]')
+          .should('have.prop', 'checked', estabaActiva);
+      });
   });
 
   it('US #7: Snippet Sharing with Directory Users', () => {
@@ -68,7 +110,7 @@ describe('Rules Catalog and Snippet Sharing (US #7, #11, #12, #14, #15, #2)', ()
     cy.get('#description').type('Snippet created to test directory user sharing');
 
     const code = 'let sharedMsg: string = "Hello Friend";{enter}println(sharedMsg);';
-    cy.get('[data-testid="add-snippet-code-editor"]')
+    cy.get('#add-snippet-code-editor')
       .click()
       .type(code);
 
@@ -78,7 +120,7 @@ describe('Rules Catalog and Snippet Sharing (US #7, #11, #12, #14, #15, #2)', ()
     // 2. Search and open detail drawer
     cy.get('[data-testid="search-snippet-input"]').clear().type(shareSnippetName);
     cy.contains(shareSnippetName, { timeout: 10000 }).click();
-    cy.get('[data-testid="snippet-detail-editor"]', { timeout: 10000 }).should('be.visible');
+    cy.get('#snippet-detail-editor', { timeout: 10000 }).should('be.visible');
 
     // 3. Open share modal
     cy.get('[data-testid="share-button"]').click();
@@ -101,14 +143,16 @@ describe('Rules Catalog and Snippet Sharing (US #7, #11, #12, #14, #15, #2)', ()
     cy.get('[data-testid="close-drawer-button"]').click();
   });
 
-  it('US #2: Snippet Deletion and Confirmation Lifecycle', () => {
+  // El borrado de un snippet no es ninguna de las user stories numeradas: US #2 es actualizar un
+  // snippet con el contenido de un archivo, que se prueba por interfaz en 02 y por API en 07.
+  it('Snippet Deletion and Confirmation Lifecycle', () => {
     cy.visit('/');
     cy.get('.MuiTypography-h6', { timeout: 15000 }).should('have.text', 'Printscript');
 
     // 1. Search and open the snippet created in previous test
     cy.get('[data-testid="search-snippet-input"]').clear().type(shareSnippetName);
     cy.contains(shareSnippetName, { timeout: 10000 }).click();
-    cy.get('[data-testid="snippet-detail-editor"]', { timeout: 10000 }).should('be.visible');
+    cy.get('#snippet-detail-editor', { timeout: 10000 }).should('be.visible');
 
     // 2. Click Delete button
     cy.get('[data-testid="delete-button"]').click();
@@ -121,7 +165,7 @@ describe('Rules Catalog and Snippet Sharing (US #7, #11, #12, #14, #15, #2)', ()
 
     // 4. Verify confirmation snackbar, drawer closing, and removal from table
     cy.contains('Snippet deleted', { timeout: 10000 }).should('be.visible');
-    cy.get('[data-testid="snippet-detail-editor"]').should('not.exist');
+    cy.get('#snippet-detail-editor').should('not.exist');
 
     // Table should no longer display the deleted snippet
     cy.get('[data-testid="search-snippet-input"]').clear().type(shareSnippetName);

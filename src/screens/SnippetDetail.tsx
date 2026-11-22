@@ -1,4 +1,4 @@
-import {useEffect, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import Editor from "react-simple-code-editor";
 import {highlight, languages} from "prismjs";
 import "prismjs/components/prism-clike";
@@ -21,12 +21,12 @@ import CloseIcon from '@mui/icons-material/Close';
 import {
   useUpdateSnippetById
 } from "../utils/queries.tsx";
-import {useFormatSnippet, useGetSnippetById, useShareSnippet} from "../utils/queries.tsx";
+import {useFormatSnippet, useGetFileTypes, useGetSnippetById, useShareSnippet} from "../utils/queries.tsx";
 import {Bòx} from "../components/snippet-table/SnippetBox.tsx";
-import {BugReport, Delete, Download, Save, Share} from "@mui/icons-material";
+import {BugReport, Delete, Download, Save, Share, UploadFile} from "@mui/icons-material";
 import {ShareSnippetModal} from "../components/snippet-detail/ShareSnippetModal.tsx";
 import {TestSnippetModal} from "../components/snippet-test/TestSnippetModal.tsx";
-import {Snippet} from "../utils/snippet.ts";
+import {getFileLanguage, Snippet} from "../utils/snippet.ts";
 import {SnippetExecution} from "./SnippetExecution.tsx";
 import ReadMoreIcon from '@mui/icons-material/ReadMore';
 import {queryClient} from "../App.tsx";
@@ -111,6 +111,8 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
     }
   })
   const {createSnackbar} = useSnackbarContext()
+  const {data: fileTypes} = useGetFileTypes()
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Toda mutacion informa su resultado: sin esto un 403 (usuario con solo lectura) o un 400 pasan en silencio.
   const notifyError = (error: Error) => createSnackbar('error', error.message)
@@ -123,6 +125,41 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
   })
 
   const handleFormat = () => formatSnippet(code, {onError: notifyError})
+
+  /**
+   * US #2: actualizar un snippet con el contenido de un archivo. El archivo solo reemplaza el
+   * texto del editor; el `PUT` lo sigue haciendo el boton de guardar, asi que el cambio se revisa
+   * antes de confirmarlo y sigue valiendo el mismo chequeo de permisos. La extension tiene que
+   * corresponder al lenguaje de este snippet: subir un archivo de otro lenguaje es un error del
+   * usuario que conviene frenar acá y no que lo rechace el backend.
+   */
+  const handleLoadFromFile = async (target: EventTarget & HTMLInputElement) => {
+    const file = target.files?.[0]
+    // El input se limpia siempre, para que elegir dos veces el mismo archivo vuelva a disparar.
+    target.value = ""
+    if (!file) {
+      createSnackbar('error', 'Please select a file')
+      return
+    }
+
+    const extension = file.name.split(".").at(-1)
+    const fileType = getFileLanguage(fileTypes ?? [], extension)
+    if (!fileType) {
+      createSnackbar('error', `File type ${extension} not supported`)
+      return
+    }
+    if (snippet && fileType.language !== snippet.language) {
+      createSnackbar('error', `This snippet is ${snippet.language}, but .${extension} files are ${fileType.language}`)
+      return
+    }
+
+    try {
+      setCode(await file.text())
+      createSnackbar('info', `${file.name} loaded: review the changes and save to update the snippet`)
+    } catch (e) {
+      createSnackbar('error', (e as Error).message)
+    }
+  }
 
   useEffect(() => {
     if (snippet) {
@@ -176,6 +213,12 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                   <ReadMoreIcon />
                 </IconButton>
               </Tooltip>
+              <Tooltip title={"Load content from file"}>
+                <IconButton aria-label="Load content from file" data-testid="load-file-button"
+                            onClick={() => fileInputRef.current?.click()}>
+                  <UploadFile/>
+                </IconButton>
+              </Tooltip>
               <Tooltip title={"Save changes"}>
                 <IconButton aria-label="Save changes" data-testid="save-button" color={"primary"} onClick={handleSaveChanges} disabled={isUpdateSnippetLoading || !hasPendingChanges} >
                   <Save />
@@ -186,6 +229,9 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                   <Delete color={"error"} />
                 </IconButton>
               </Tooltip>
+              <input hidden type={"file"} ref={fileInputRef} multiple={false}
+                     data-testid={"update-file-input"}
+                     onChange={e => handleLoadFromFile(e?.target)}/>
             </Box>
             <TextField label="Description" placeholder="What does this snippet do?" fullWidth multiline
                        minRows={1} sx={{mb: 2}} value={description}
@@ -196,7 +242,10 @@ export const SnippetDetail = (props: SnippetDetailProps) => {
                 <Editor
                     value={code}
                     padding={10}
-                    data-testid={"snippet-detail-editor"}
+                    // `react-simple-code-editor` manda las props que no conoce al <div> contenedor, así que un
+                    // `data-testid` nunca llegaría al <textarea>. `textareaId` sí es una prop propia de la
+                    // librería y se aplica al textarea real, que es el que tiene el valor del código.
+                    textareaId={"snippet-detail-editor"}
                     onValueChange={(code) => setCode(code)}
                     highlight={(code) => highlight(code, languages.js, "javascript")}
                     maxLength={1000}
