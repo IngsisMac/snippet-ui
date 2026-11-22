@@ -10,6 +10,10 @@ type ShareSnippetModalProps = {
   onShare: (userId: string) => void
   loading: boolean
 }
+// Espera corta entre tecla y consulta: alcanza para no consultar en cada letra sin que el usuario
+// tenga que esperar para ver las opciones.
+const DEBOUNCE_MS = 300
+
 export const ShareSnippetModal = (props: ShareSnippetModalProps) => {
   const {open, onClose, onShare, loading} = props
   const [name, setName] = useState("")
@@ -20,7 +24,7 @@ export const ShareSnippetModal = (props: ShareSnippetModalProps) => {
   useEffect(() => {
     const getData = setTimeout(() => {
       setDebouncedName(name)
-    }, 3000)
+    }, DEBOUNCE_MS)
     return () => clearTimeout(getData)
   }, [name])
 
@@ -37,13 +41,20 @@ export const ShareSnippetModal = (props: ShareSnippetModalProps) => {
               data-testid="share-user-autocomplete"
               renderInput={(params) => <TextField {...params} label="Type the user's name" inputProps={{...params.inputProps, 'data-testid': 'share-user-input'}} />}
               options={data?.users ?? []}
+              // El backend ya filtra por nombre o email (contiene, sin distinguir mayúsculas). El
+              // filtro por defecto de MUI compararía lo tipeado contra las opciones de la consulta
+              // anterior y mostraría "No options" hasta que llegue la nueva.
+              filterOptions={options => options}
               isOptionEqualToValue={(option, value) =>
                   option.id === value.id
               }
               getOptionLabel={(option) => option.name}
               loading={isLoading}
               value={selectedUser}
-              onInputChange={(_: unknown, newValue: string | null) => newValue && setName(newValue)}
+              onInputChange={(_: unknown, newValue: string, reason: string) => {
+                // Al elegir una opción MUI "resetea" el texto con la etiqueta; eso no es una búsqueda.
+                if (reason !== 'reset') setName(newValue)
+              }}
               onChange={(_: unknown, newValue: User | null) => handleSelectUser(newValue)}
           />
           <Box mt={4} display={"flex"} width={"100%"} justifyContent={"flex-end"}>

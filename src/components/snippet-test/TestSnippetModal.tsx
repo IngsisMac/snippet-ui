@@ -32,9 +32,11 @@ type TestSnippetModalProps = {
     snippetId: string
     open: boolean
     onClose: () => void
+    /** Quien solo puede leer corre los tests pero no los crea, edita ni borra. */
+    canWrite?: boolean
 }
 
-export const TestSnippetModal = ({snippetId, open, onClose}: TestSnippetModalProps) => {
+export const TestSnippetModal = ({snippetId, open, onClose, canWrite = true}: TestSnippetModalProps) => {
     const [value, setValue] = useState(0);
 
     // Mientras haya una corrida automática en vuelo se vuelve a consultar: el resultado lo
@@ -81,21 +83,27 @@ export const TestSnippetModal = ({snippetId, open, onClose}: TestSnippetModalPro
                     {testCases?.map((testCase) => (
                         <Tab key={testCase.id} label={<TestCaseTabLabel testCase={testCase}/>}/>
                     ))}
-                    <IconButton data-testid="add-test-case-button" disableRipple onClick={() => setValue((testCases?.length ?? 0) + 1)}>
-                        <AddRounded />
-                    </IconButton>
+                    {canWrite && (
+                        <IconButton data-testid="add-test-case-button" disableRipple onClick={() => setValue((testCases?.length ?? 0) + 1)}>
+                            <AddRounded />
+                        </IconButton>
+                    )}
                 </Tabs>
                 {testCases?.map((testCase, index) => (
                     <TabPanel key={testCase.id} snippetId={snippetId} index={index} value={effectiveValue} test={testCase}
                               setTestCase={saveTestCase}
                               removeTestCase={(i) => removeTestCase(i)}
+                              readOnly={!canWrite}
                     />
                 ))}
                 {/* La key remonta el panel vacío cada vez que se guarda un test: sin ella conserva el formulario anterior. */}
-                <TabPanel key={`new-${testCases?.length ?? 0}`} snippetId={snippetId}
-                          index={(testCases?.length ?? 0) + 1} value={effectiveValue}
-                          setTestCase={saveTestCase}
-                />
+                {canWrite && (
+                    <TabPanel key={`new-${testCases?.length ?? 0}`} snippetId={snippetId}
+                              index={(testCases?.length ?? 0) + 1} value={effectiveValue}
+                              setTestCase={saveTestCase}
+                    />
+                )}
+                {!canWrite && !hasCases && <Typography mt={2} ml={2}>This snippet has no tests yet.</Typography>}
             </Box>
         </ModalWrapper>
     )

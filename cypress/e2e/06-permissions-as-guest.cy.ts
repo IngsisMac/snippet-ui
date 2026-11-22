@@ -5,8 +5,8 @@ import { apiRequest, authTokenOfCurrentUser } from '../support/api'
  *
  * La dueña (usuario A) crea dos snippets por API y comparte solo uno con nivel `READ`. Despues el
  * invitado (usuario B) entra por la interfaz y se verifica que puede leer (abrir el detalle, correr
- * un test case, formatear, descargar) y que toda escritura le vuelve 403 con su mensaje: editar,
- * compartir y borrar.
+ * un test case, formatear, descargar) y que la interfaz le bloquea las escrituras (guardar, compartir,
+ * borrar, editar tests) y el backend las rechaza con 403 si se piden igual.
  *
  * IMPORTANTE: los tests del invitado necesitan `AUTH0_PASSWORD_B` en el `.env` de `snippet-ui`.
  * Si esa variable esta vacia el bloque se SALTEA en lugar de fallar, para que la suite no se ponga
@@ -149,10 +149,10 @@ describe('Permisos de un invitado con solo lectura (US #7)', () => {
       esperarTitulo()
     })
 
-    it('ve el snippet compartido en su listado con la dueña como autora y abre el detalle', () => {
+    it('ve el snippet compartido en su listado con el nombre de la dueña como autora y abre el detalle', () => {
       cy.get('[data-testid="search-snippet-input"]').clear().type(snippetCompartido)
       cy.contains('[data-testid="snippet-row"]', snippetCompartido, { timeout: 15000 })
-          .should('contain.text', compartido.ownerId)
+          .should('not.contain.text', 'auth0|')
           .click()
 
       // El identificador del editor esta sobre el <textarea> real (prop `textareaId` de
@@ -163,29 +163,71 @@ describe('Permisos de un invitado con solo lectura (US #7)', () => {
       cy.get('[data-testid="close-drawer-button"]').click()
     })
 
-    it('al guardar una edición recibe 403 y el contenido guardado no cambia', () => {
+    it('la interfaz no le ofrece editar: avisa que es de solo lectura y bloquea guardar, subir archivo y el nombre', () => {
       abrirDetalleCompartido()
 
-      cy.get('#snippet-detail-editor')
-          .click()
-          .type('{enter}println("cambio del invitado");')
-
-      cy.intercept('PUT', '/api/snippets/*').as('guardarSnippet')
-      cy.get('[data-testid="save-button"]').should('not.be.disabled').click()
-      cy.wait('@guardarSnippet').its('response.statusCode').should('eq', 403)
-      cy.contains('Not allowed to edit this snippet', { timeout: 10000 }).should('be.visible')
+      cy.get('[data-testid="read-only-alert"]').should('be.visible')
+      cy.get('[data-testid="save-button"]').should('be.disabled')
+      cy.get('[data-testid="load-file-button"]').should('be.disabled')
+      cy.get('[data-testid="snippet-name-input"]').should('be.disabled')
+      cy.get('#snippet-detail-editor').should('have.attr', 'readonly')
 
       cy.get('[data-testid="close-drawer-button"]').click()
-      cy.get('#snippet-detail-editor').should('not.exist')
+    })
 
-      // Que el 403 no haya guardado nada se verifica contra lo que esta persistido: el editor
-      // conserva en pantalla el texto que tipeo el invitado, que es justamente lo que no se guardo.
-      authTokenOfCurrentUser().then((tokenDelInvitado) => {
+    it('la interfaz no le ofrece compartir ni borrar porque no es la dueña', () => {
+      abrirDetalleCompartido()
+
+      cy.get('[data-testid="share-button"]').should('be.disabled')
+      cy.get('[data-testid="delete-button"]').should('be.disabled')
+
+      cy.get('[data-testid="close-drawer-button"]').click()
+    })
+
+    it('en el modal de tests no puede crear ni borrar casos, solo correrlos', () => {
+      abrirDetalleCompartido()
+
+      cy.get('[data-testid="test-button"]').click()
+      cy.contains('Test snippet').should('be.visible')
+      cy.get('[data-testid="add-test-case-button"]').should('not.exist')
+      cy.contains('.MuiTab-root', nombreDelCaso, { timeout: 15000 }).click()
+      cy.get('[data-testid="test-case-remove-button"]').should('not.exist')
+      cy.get('[data-testid="test-case-save-button"]').should('be.disabled')
+      cy.get('[data-testid="test-case-run-button"]').should('not.be.disabled')
+
+      cy.get('body').type('{esc}')
+      cy.get('[data-testid="close-drawer-button"]').click()
+    })
+
+    // La interfaz ya no manda estas escrituras, pero el permiso lo decide el backend: si alguien
+    // las manda igual (otra UI, curl) tienen que volver 403 y no cambiar nada.
+    it('el backend rechaza con 403 editar, compartir y borrar aunque se las pida directo', () => {
+      authTokenOfCurrentUser().then((token) => {
         apiRequest({
-          method: 'GET',
-          url: `/api/snippets/${compartido.id}/content`,
-          token: tokenDelInvitado,
+          method: 'PUT',
+          url: `/api/snippets/${compartido.id}`,
+          token,
+          body: { content: 'println("cambio del invitado");' },
         }).then((response) => {
+          expect(response.status, 'editar como invitado').to.eq(403)
+          expect((response.body as { message?: string }).message).to.contain('Not allowed to edit this snippet')
+        })
+
+        apiRequest({
+          method: 'POST',
+          url: `/api/permissions/${compartido.id}/share`,
+          token,
+          body: { targetUserId: 'auth0|cualquiera', level: 'READ' },
+        }).then((response) => {
+          expect(response.status, 'compartir como invitado').to.eq(403)
+        })
+
+        apiRequest({ method: 'DELETE', url: `/api/snippets/${compartido.id}`, token }).then((response) => {
+          expect(response.status, 'borrar como invitado').to.eq(403)
+          expect((response.body as { message?: string }).message).to.contain('Only the owner can delete this snippet')
+        })
+
+        apiRequest({ method: 'GET', url: `/api/snippets/${compartido.id}/content`, token }).then((response) => {
           expect(response.status, 'lectura del contenido como invitado').to.eq(200)
           const guardado = (response.body as unknown as { content: string }).content
           expect(guardado, 'el contenido guardado no cambió').to.eq(contenidoOriginal)
@@ -193,48 +235,14 @@ describe('Permisos de un invitado con solo lectura (US #7)', () => {
       })
     })
 
-    it('al intentar compartir el snippet recibe 403 porque no es la dueña', () => {
-      abrirDetalleCompartido()
-
-      cy.get('[data-testid="share-button"]').click()
-      cy.contains('Share your snippet').should('be.visible')
-
-      cy.get('[data-testid="share-user-autocomplete"] .MuiAutocomplete-popupIndicator').click()
-      cy.get('.MuiAutocomplete-popper li', { timeout: 10000 }).first().click()
-
-      cy.intercept('POST', '/api/permissions/*/share').as('compartirSnippet')
-      cy.get('[data-testid="share-confirm-button"]').should('not.be.disabled').click()
-      cy.wait('@compartirSnippet').its('response.statusCode').should('eq', 403)
-      cy.contains('Only owners can share snippets', { timeout: 10000 }).should('be.visible')
-
-      cy.get('[data-testid="share-cancel-button"]').click()
-      cy.get('[data-testid="close-drawer-button"]').click()
-    })
-
-    it('al confirmar el borrado recibe 403, el modal se cierra y el snippet sigue en la tabla', () => {
-      abrirDetalleCompartido()
-
-      cy.get('[data-testid="delete-button"]').click()
-      cy.contains('Are you sure you want to delete this snippet?').should('be.visible')
-
-      cy.intercept('DELETE', '/api/snippets/*').as('borrarSnippet')
-      cy.get('[data-testid="confirm-delete-button"]').click()
-      cy.wait('@borrarSnippet').its('response.statusCode').should('eq', 403)
-      cy.contains('Only the owner can delete this snippet', { timeout: 10000 }).should('be.visible')
-      cy.contains('Are you sure you want to delete this snippet?').should('not.exist')
-
-      cy.get('[data-testid="close-drawer-button"]').click()
-      cy.get('[data-testid="search-snippet-input"]').clear().type(snippetCompartido)
-      cy.contains('[data-testid="snippet-row"]', snippetCompartido, { timeout: 15000 })
-          .should('be.visible')
-    })
-
     it('la lectura sí está permitida: descarga, formatea y corre el test case de la dueña', () => {
       abrirDetalleCompartido()
 
-      cy.get('[data-testid="download-button"] a')
+      cy.get('[data-testid="download-button"]').click()
+      cy.get('[data-testid="download-original"]')
           .should('have.attr', 'download')
           .and('include', '.prs')
+      cy.get('body').type('{esc}')
 
       cy.intercept('POST', '/api/snippets/*/format').as('formatearSnippet')
       cy.get('[data-testid="format-button"]').click()

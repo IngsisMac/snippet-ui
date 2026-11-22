@@ -1,4 +1,4 @@
-import {CreateSnippet, PaginatedSnippets, Snippet, SnippetSort, UpdateSnippet} from './snippet'
+import {CreateSnippet, PaginatedSnippets, Snippet, SnippetFilters, SnippetSort, UpdateSnippet} from './snippet'
 import {PaginatedUsers} from "./users.ts";
 import {TestCase} from "../types/TestCase.ts";
 import {TestCaseResult} from "./queries.tsx";
@@ -12,7 +12,7 @@ export type CurrentUserProfile = {
 }
 
 export interface SnippetOperations {
-  listSnippetDescriptors(page: number,pageSize: number,sippetName?: string,sort?: SnippetSort): Promise<PaginatedSnippets>
+  listSnippetDescriptors(page: number,pageSize: number,filters?: SnippetFilters, sort?: SnippetSort): Promise<PaginatedSnippets>
 
   createSnippet(createSnippet: CreateSnippet): Promise<Snippet>
 

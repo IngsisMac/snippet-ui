@@ -12,13 +12,23 @@ import {
   TableHead,
   TablePagination,
   TableRow,
-  TableSortLabel
+  TableSortLabel,
+  TextField
 } from "@mui/material";
 import {AddSnippetModal} from "./AddSnippetModal.tsx";
 import {useRef, useState} from "react";
 import {Add, Search} from "@mui/icons-material";
 import {LoadingSnippetRow, SnippetRow} from "./SnippetRow.tsx";
-import {CreateSnippetWithLang, getFileLanguage, Snippet, SnippetSort, SnippetSortField} from "../../utils/snippet.ts";
+import {
+  ComplianceEnum,
+  CreateSnippetWithLang,
+  getFileLanguage,
+  languagesOf,
+  Snippet,
+  SnippetScope,
+  SnippetSort,
+  SnippetSortField
+} from "../../utils/snippet.ts";
 import {usePaginationContext} from "../../contexts/paginationContext.tsx";
 import {useSnackbarContext} from "../../contexts/snackbarContext.tsx";
 import {useGetFileTypes} from "../../utils/queries.tsx";
@@ -30,7 +40,26 @@ type SnippetTableProps = {
   handleSearchSnippet: (snippetName: string) => void;
   sort?: SnippetSort;
   handleSortSnippets: (field: SnippetSortField) => void;
+  scope: SnippetScope;
+  onScopeChange: (scope: SnippetScope) => void;
+  language: string;
+  onLanguageChange: (language: string) => void;
+  compliance: ComplianceEnum | '';
+  onComplianceChange: (compliance: ComplianceEnum | '') => void;
 }
+
+const SCOPE_OPTIONS: { value: SnippetScope, label: string }[] = [
+  {value: 'all', label: 'All'},
+  {value: 'owned', label: 'Mine'},
+  {value: 'shared', label: 'Shared with me'},
+]
+
+const COMPLIANCE_OPTIONS: { value: ComplianceEnum, label: string }[] = [
+  {value: 'compliant', label: 'Compliant'},
+  {value: 'not-compliant', label: 'Not compliant'},
+  {value: 'pending', label: 'Pending'},
+  {value: 'failed', label: 'Failed'},
+]
 
 /** Columnas ordenables del listado (US #5). `author` sale del servicio de permisos, no se ordena. */
 const SORTABLE_COLUMNS: { label: string, field: SnippetSortField }[] = [
@@ -39,7 +68,10 @@ const SORTABLE_COLUMNS: { label: string, field: SnippetSortField }[] = [
 ]
 
 export const SnippetTable = (props: SnippetTableProps) => {
-  const {snippets, handleClickSnippet, loading, handleSearchSnippet, sort, handleSortSnippets} = props;
+  const {
+    snippets, handleClickSnippet, loading, handleSearchSnippet, sort, handleSortSnippets,
+    scope, onScopeChange, language, onLanguageChange, compliance, onComplianceChange
+  } = props;
   const [addModalOpened, setAddModalOpened] = useState(false);
   const [popoverMenuOpened, setPopoverMenuOpened] = useState(false)
   const [snippet, setSnippet] = useState<CreateSnippetWithLang | undefined>()
@@ -88,13 +120,32 @@ export const SnippetTable = (props: SnippetTableProps) => {
           <Box sx={{background: 'white', width: '30%', display: 'flex'}}>
             <InputBase
                 sx={{ml: 1, flex: 1}}
-                placeholder="Search FileType"
+                placeholder="Search by name"
                 inputProps={{'aria-label': 'search', 'data-testid': 'search-snippet-input'}}
                 onChange={e => handleSearchSnippet(e.target.value)}
             />
             <IconButton type="button" sx={{p: '10px'}} aria-label="search">
               <Search/>
             </IconButton>
+          </Box>
+          <Box sx={{display: 'flex', gap: 1}}>
+            <TextField select size="small" label="Show" value={scope} sx={{minWidth: 150, background: 'white'}}
+                       inputProps={{'data-testid': 'scope-filter'}}
+                       onChange={e => onScopeChange(e.target.value as SnippetScope)}>
+              {SCOPE_OPTIONS.map(o => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+            </TextField>
+            <TextField select size="small" label="Language" value={language} sx={{minWidth: 150, background: 'white'}}
+                       inputProps={{'data-testid': 'language-filter'}}
+                       onChange={e => onLanguageChange(e.target.value)}>
+              <MenuItem value="">All</MenuItem>
+              {languagesOf(fileTypes ?? []).map(name => <MenuItem key={name} value={name}>{name}</MenuItem>)}
+            </TextField>
+            <TextField select size="small" label="Conformance" value={compliance} sx={{minWidth: 160, background: 'white'}}
+                       inputProps={{'data-testid': 'compliance-filter'}}
+                       onChange={e => onComplianceChange(e.target.value as ComplianceEnum | '')}>
+              <MenuItem value="">All</MenuItem>
+              {COMPLIANCE_OPTIONS.map(o => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+            </TextField>
           </Box>
           <Button ref={popoverRef} variant="contained" disableRipple sx={{boxShadow: 0}}
                   data-testid={"add-snippet-button"}

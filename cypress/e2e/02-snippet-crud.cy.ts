@@ -155,10 +155,11 @@ describe('Snippet CRUD Lifecycle (US #1, #2, #3, #4, #13)', () => {
 
                 // Lo que baja el link es el contenido guardado, no el formateado. El href es un
                 // blob que armo la propia pagina, asi que se lee con el fetch de la ventana.
-                cy.get('[data-testid="download-button"] a')
+                cy.get('[data-testid="download-button"]').click();
+                cy.get('[data-testid="download-original"]')
                   .should('have.attr', 'download')
                   .and('include', '.prs');
-                cy.get('[data-testid="download-button"] a').then(($link) => {
+                cy.get('[data-testid="download-original"]').then(($link) => {
                   const blob = $link.attr('href') as string;
                   expect(blob, 'el link apunta a un blob de la pagina').to.match(/^blob:/);
                   cy.window().then((win) => win.fetch(blob).then((r) => r.text()))
@@ -167,6 +168,8 @@ describe('Snippet CRUD Lifecycle (US #1, #2, #3, #4, #13)', () => {
                       expect(bajado, 'la descarga no entrega el formateado').to.not.eq(formateado);
                     });
                 });
+                cy.get('body').type('{esc}');
+                cy.get('[data-testid="download-original"]').should('not.exist');
 
                 // US #11: formatear a demanda reemplaza el texto del editor por el del backend
                 cy.intercept('POST', '/api/snippets/*/format').as('formatearSnippet');
@@ -181,13 +184,15 @@ describe('Snippet CRUD Lifecycle (US #1, #2, #3, #4, #13)', () => {
                 });
 
                 // Formatear no guarda: el link de descarga sigue entregando el original
-                cy.get('[data-testid="download-button"] a').then(($link) => {
+                cy.get('[data-testid="download-button"]').click();
+                cy.get('[data-testid="download-original"]').then(($link) => {
                   const blob = $link.attr('href') as string;
                   cy.window().then((win) => win.fetch(blob).then((r) => r.text()))
                     .then((bajado) => {
                       expect(bajado, 'formatear el editor no cambio lo guardado').to.eq(original);
                     });
                 });
+                cy.get('body').type('{esc}');
               });
           });
         });

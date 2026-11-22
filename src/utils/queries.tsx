@@ -1,5 +1,5 @@
 import {useMutation, UseMutationResult, useQuery, UseQueryOptions} from 'react-query';
-import {CreateSnippet, PaginatedSnippets, Snippet, SnippetSort, UpdateSnippet} from './snippet.ts';
+import {CreateSnippet, PaginatedSnippets, Snippet, SnippetFilters, SnippetSort, UpdateSnippet} from './snippet.ts';
 import {CurrentUserProfile, SnippetOperations} from "./snippetOperations.ts";
 import {PaginatedUsers} from "./users.ts";
 import {TestCase} from "../types/TestCase.ts";
@@ -27,7 +27,7 @@ export const useRegisterCurrentUser = () => {
   return useMutation<void, Error, CurrentUserProfile>(profile => snippetOperations.registerCurrentUser(profile))
 }
 
-export const useGetSnippets = (page: number = 0, pageSize: number = 10, snippetName?: string, sort?: SnippetSort) => {
+export const useGetSnippets = (page: number = 0, pageSize: number = 10, filters?: SnippetFilters, sort?: SnippetSort) => {
   const snippetOperations = useSnippetsOperations()
 
   // El linteo de un snippet recién creado o editado corre en background (US #15): mientras haya
@@ -39,8 +39,8 @@ export const useGetSnippets = (page: number = 0, pageSize: number = 10, snippetN
   // abierta la ventana de revalidación que abre el `PUT` de reglas, sin mirar el contenido de la
   // página.
   return useQuery<PaginatedSnippets, Error>(
-      ['listSnippets', page, pageSize, snippetName, sort?.field, sort?.direction],
-      () => snippetOperations.listSnippetDescriptors(page, pageSize, snippetName, sort),
+      ['listSnippets', page, pageSize, filters?.name, filters?.scope, filters?.language, filters?.compliance, sort?.field, sort?.direction],
+      () => snippetOperations.listSnippetDescriptors(page, pageSize, filters, sort),
       {
         refetchInterval: (data?: PaginatedSnippets) =>
             revalidacionDeReglasEnCurso() ||

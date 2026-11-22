@@ -146,6 +146,18 @@ describe('Snippet Discovery and Inspection (US #5, US #6)', () => {
     });
   });
 
+  it('US #5: Should sort snippets by Language', () => {
+    cy.intercept('GET', '/api/snippets*').as('sortSnippets');
+    cy.visit('/');
+    cy.wait('@sortSnippets');
+
+    cy.contains('.MuiTableSortLabel-root', 'Language').click();
+    cy.wait('@sortSnippets').its('request.url').should('include', 'sort=language,asc');
+
+    cy.contains('.MuiTableSortLabel-root', 'Language').click();
+    cy.wait('@sortSnippets').its('request.url').should('include', 'sort=language,desc');
+  });
+
   it('US #6: Should view snippet details, description and compliance status', () => {
     cy.intercept('GET', '/api/snippets*').as('getSnippets');
     cy.visit('/');

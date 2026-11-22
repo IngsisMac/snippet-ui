@@ -13,9 +13,10 @@ type TabPanelProps = {
     test?: TestCase;
     setTestCase: (test: Partial<TestCase>) => void;
     removeTestCase?: (testIndex: string) => void;
+    readOnly?: boolean;
 }
 
-export const TabPanel = ({snippetId, value, index, test: initialTest, setTestCase, removeTestCase}: TabPanelProps) => {
+export const TabPanel = ({snippetId, value, index, test: initialTest, setTestCase, removeTestCase, readOnly = false}: TabPanelProps) => {
     const [testData, setTestData] = useState<Partial<TestCase> | undefined>(initialTest);
     const {createSnackbar} = useSnackbarContext()
 
@@ -103,13 +104,13 @@ export const TabPanel = ({snippetId, value, index, test: initialTest, setTestCas
                     )}
                     <Box display="flex" flexDirection="row" gap={1}>
                         {
-                            (testData?.id && removeTestCase) && (
+                            (!readOnly && testData?.id && removeTestCase) && (
                             <Button data-testid="test-case-remove-button" onClick={() => removeTestCase(testData?.id ?? "")} variant={"outlined"} color={"error"}
                                     startIcon={<Delete/>}>
                                 Remove
                             </Button>)
                         }
-                        <Button data-testid="test-case-save-button" disabled={!testData?.name} onClick={() => setTestCase(testData ?? {})} variant={"outlined"} startIcon={<Save/>}>
+                        <Button data-testid="test-case-save-button" disabled={readOnly || !testData?.name} onClick={() => setTestCase(testData ?? {})} variant={"outlined"} startIcon={<Save/>}>
                             Save
                         </Button>
                         <Button data-testid="test-case-run-button" onClick={runTest} variant={"contained"} startIcon={<BugReport/>}

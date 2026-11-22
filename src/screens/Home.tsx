@@ -7,7 +7,7 @@ import {Drawer} from "@mui/material";
 import {useGetSnippets} from "../utils/queries.tsx";
 import {usePaginationContext} from "../contexts/paginationContext.tsx";
 import useDebounce from "../hooks/useDebounce.ts";
-import {SnippetSort, SnippetSortField} from "../utils/snippet.ts";
+import {ComplianceEnum, SnippetScope, SnippetSort, SnippetSortField} from "../utils/snippet.ts";
 
 const HomeScreen = () => {
   const {id: paramsId} = useParams<{ id: string }>();
@@ -15,8 +15,16 @@ const HomeScreen = () => {
   const [snippetName, setSnippetName] = useState('');
   const [snippetId, setSnippetId] = useState<string | null>(null)
   const [sort, setSort] = useState<SnippetSort | undefined>()
-  const {page, page_size, count, handleChangeCount} = usePaginationContext()
-  const {data, isLoading} = useGetSnippets(page, page_size, snippetName, sort)
+  const [scope, setScope] = useState<SnippetScope>('all')
+  const [language, setLanguage] = useState('')
+  const [compliance, setCompliance] = useState<ComplianceEnum | ''>('')
+  const {page, page_size, count, handleChangeCount, handleGoToPage} = usePaginationContext()
+  const {data, isLoading} = useGetSnippets(page, page_size, {
+    name: snippetName,
+    scope,
+    language: language || undefined,
+    compliance: compliance || undefined,
+  }, sort)
 
   useEffect(() => {
     if (data?.count !== undefined && data.count != count) {
@@ -45,6 +53,12 @@ const HomeScreen = () => {
     setSearchTerm(snippetName);
   };
 
+  // Cambiar un filtro cambia el conjunto de resultados: se vuelve a la primera página.
+  const withFirstPage = <T, >(setter: (value: T) => void) => (value: T) => {
+    setter(value)
+    handleGoToPage(0)
+  }
+
   // Click sobre la misma columna invierte la direccion; sobre otra, arranca ascendente.
   const handleSortSnippets = (field: SnippetSortField) => {
     setSort(current => current?.field === field
@@ -56,7 +70,10 @@ const HomeScreen = () => {
       <>
         <SnippetTable loading={isLoading} handleClickSnippet={setSnippetId} snippets={data?.snippets}
                       handleSearchSnippet={handleSearchSnippet} sort={sort}
-                      handleSortSnippets={handleSortSnippets}/>
+                      handleSortSnippets={handleSortSnippets}
+                      scope={scope} onScopeChange={withFirstPage(setScope)}
+                      language={language} onLanguageChange={withFirstPage(setLanguage)}
+                      compliance={compliance} onComplianceChange={withFirstPage(setCompliance)}/>
         <Drawer open={!!snippetId} anchor={"right"} onClose={handleCloseModal}>
           {snippetId && <SnippetDetail handleCloseModal={handleCloseModal} id={snippetId}/>}
         </Drawer>
