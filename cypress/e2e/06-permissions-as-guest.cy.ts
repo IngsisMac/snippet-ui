@@ -169,7 +169,8 @@ describe('Permisos de un invitado con solo lectura (US #7)', () => {
     it('la interfaz no le ofrece editar: avisa que es de solo lectura y bloquea guardar, subir archivo y el nombre', () => {
       abrirDetalleCompartido()
 
-      cy.get('[data-testid="read-only-alert"]').should('be.visible')
+      // abrirDetalleCompartido deja el editor a la vista y el aviso queda arriba, fuera de la ventana.
+      cy.get('[data-testid="read-only-alert"]').scrollIntoView().should('be.visible')
       cy.get('[data-testid="save-button"]').should('be.disabled')
       cy.get('[data-testid="load-file-button"]').should('be.disabled')
       cy.get('[data-testid="snippet-name-input"]').should('be.disabled')
