@@ -1,5 +1,5 @@
 import {useMutation, UseMutationResult, useQuery, UseQueryOptions} from 'react-query';
-import {CreateSnippet, PaginatedSnippets, Snippet, SnippetSort, UpdateSnippet} from './snippet.ts';
+import {CreateSnippet, PaginatedSnippets, Snippet, SnippetFilters, SnippetSort, UpdateSnippet} from './snippet.ts';
 import {CurrentUserProfile, SnippetOperations} from "./snippetOperations.ts";
 import {PaginatedUsers} from "./users.ts";
 import {TestCase} from "../types/TestCase.ts";
@@ -9,6 +9,7 @@ import {useAuth0} from "@auth0/auth0-react";
 import {useMemo} from "react";
 import {HttpSnippetOperations} from "./http/httpSnippetOperations.ts";
 import {BACKEND_URL} from "./constants.ts";
+import {revalidacionDeReglasEnCurso} from "./revalidation.ts";
 
 
 export const useSnippetsOperations = (): SnippetOperations => {
@@ -26,16 +27,23 @@ export const useRegisterCurrentUser = () => {
   return useMutation<void, Error, CurrentUserProfile>(profile => snippetOperations.registerCurrentUser(profile))
 }
 
-export const useGetSnippets = (page: number = 0, pageSize: number = 10, snippetName?: string, sort?: SnippetSort) => {
+export const useGetSnippets = (page: number = 0, pageSize: number = 10, filters?: SnippetFilters, sort?: SnippetSort) => {
   const snippetOperations = useSnippetsOperations()
 
   // El linteo de un snippet recién creado o editado corre en background (US #15): mientras haya
   // filas en `pending` se vuelve a consultar, para que la columna de conformidad se actualice sola.
+  //
+  // Eso solo no alcanza para el cambio masivo de reglas (US #12 y #15): si el `GET` del listado
+  // llega antes de que el consumidor de `lint-rules` marque los snippets como PENDING, la página ve
+  // el estado anterior y apagaría el polling para siempre. Por eso también se consulta mientras siga
+  // abierta la ventana de revalidación que abre el `PUT` de reglas, sin mirar el contenido de la
+  // página.
   return useQuery<PaginatedSnippets, Error>(
-      ['listSnippets', page, pageSize, snippetName, sort?.field, sort?.direction],
-      () => snippetOperations.listSnippetDescriptors(page, pageSize, snippetName, sort),
+      ['listSnippets', page, pageSize, filters?.name, filters?.scope, filters?.language, filters?.compliance, sort?.field, sort?.direction],
+      () => snippetOperations.listSnippetDescriptors(page, pageSize, filters, sort),
       {
         refetchInterval: (data?: PaginatedSnippets) =>
+            revalidacionDeReglasEnCurso() ||
             data?.snippets.some(snippet => snippet.compliance === 'pending') ? 2000 : false,
       }
   );

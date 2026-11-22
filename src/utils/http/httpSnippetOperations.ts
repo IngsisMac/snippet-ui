@@ -1,7 +1,7 @@
 import axios, {AxiosError, AxiosInstance} from 'axios'
 import autoBind from 'auto-bind'
 import {CurrentUserProfile, SnippetOperations} from '../snippetOperations'
-import {ComplianceEnum, CreateSnippet, PaginatedSnippets, Snippet, SnippetSort, UpdateSnippet} from '../snippet'
+import {ComplianceEnum, CreateSnippet, PaginatedSnippets, Snippet, SnippetFilters, SnippetSort, UpdateSnippet} from '../snippet'
 import {PaginatedUsers} from "../users.ts";
 import {TestCase, TestRunStatus} from "../../types/TestCase.ts";
 import {TestCaseResult} from "../queries.tsx";
@@ -28,6 +28,13 @@ const COMPLIANCE: Record<ComplianceStatusResponse, ComplianceEnum> = {
   COMPLIANT: 'compliant',
   NOT_COMPLIANT: 'not-compliant',
   FAILED: 'failed',
+}
+
+const COMPLIANCE_PARAM: Record<ComplianceEnum, ComplianceStatusResponse> = {
+  'pending': 'PENDING',
+  'compliant': 'COMPLIANT',
+  'not-compliant': 'NOT_COMPLIANT',
+  'failed': 'FAILED',
 }
 
 const DEFAULT_LANGUAGE_VERSION = '1.1'
@@ -67,9 +74,17 @@ export class HttpSnippetOperations implements SnippetOperations {
     autoBind(this)
   }
 
-  async listSnippetDescriptors(page: number, pageSize: number, snippetName?: string, sort?: SnippetSort): Promise<PaginatedSnippets> {
+  async listSnippetDescriptors(page: number, pageSize: number, filters?: SnippetFilters, sort?: SnippetSort): Promise<PaginatedSnippets> {
     const {data} = await this.http.get<SpringPage<SnippetResponse>>('/snippets', {
-      params: {page, size: pageSize, name: snippetName || undefined, sort: sortParam(sort)}
+      params: {
+        page,
+        size: pageSize,
+        name: filters?.name || undefined,
+        scope: filters?.scope?.toUpperCase(),
+        language: filters?.language || undefined,
+        status: filters?.compliance && COMPLIANCE_PARAM[filters.compliance],
+        sort: sortParam(sort),
+      }
     })
     const fileTypes = await this.fileTypes()
     return {
@@ -82,7 +97,9 @@ export class HttpSnippetOperations implements SnippetOperations {
 
   async createSnippet(createSnippet: CreateSnippet): Promise<Snippet> {
     const fileTypes = await this.fileTypes()
-    const version = fileTypes.find(f => f.language === createSnippet.language)?.version ?? DEFAULT_LANGUAGE_VERSION
+    const version = createSnippet.version ??
+        fileTypes.filter(f => f.language === createSnippet.language).at(-1)?.version ??
+        DEFAULT_LANGUAGE_VERSION
     const {data} = await this.http.post<SnippetResponse>('/snippets', {
       name: createSnippet.name,
       language: createSnippet.language,
@@ -100,6 +117,7 @@ export class HttpSnippetOperations implements SnippetOperations {
 
   async updateSnippetById(id: string, updateSnippet: UpdateSnippet): Promise<Snippet> {
     const {data} = await this.http.put<SnippetResponse>(`/snippets/${id}`, {
+      name: updateSnippet.name,
       content: updateSnippet.content,
       description: updateSnippet.description,
     })
@@ -270,7 +288,7 @@ export class HttpSnippetOperations implements SnippetOperations {
   }
 
   async getFileTypes(): Promise<FileType[]> {
-    return (await this.fileTypes()).map(f => ({language: f.language, extension: f.extension}))
+    return (await this.fileTypes()).map(f => ({language: f.language, extension: f.extension, version: f.version}))
   }
 
   private fileTypes(): Promise<FileTypeResponse[]> {
@@ -293,7 +311,10 @@ export class HttpSnippetOperations implements SnippetOperations {
       language: response.language,
       extension: fileTypes.find(f => f.language === response.language)?.extension ?? response.language,
       compliance: COMPLIANCE[response.status] ?? 'pending',
-      author: response.ownerId,
+      // El nombre sale del directorio de usuarios; quien nunca inició sesión no figura y se muestra el id.
+      author: response.ownerName || response.ownerId,
+      version: response.version,
+      permission: response.permission === 'NONE' ? undefined : response.permission ?? undefined,
       description: response.description ?? undefined,
       findings: response.findings ?? undefined,
     }

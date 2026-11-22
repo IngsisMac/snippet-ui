@@ -1,3 +1,5 @@
+import { apiRequest, authTokenOfCurrentUser } from '../support/api';
+
 describe('Snippet Discovery and Inspection (US #5, US #6)', () => {
   beforeEach(() => {
     cy.loginToAuth0();
@@ -21,6 +23,77 @@ describe('Snippet Discovery and Inspection (US #5, US #6)', () => {
 
     // Verify pagination controls exist
     cy.get('.MuiTablePagination-root').should('be.visible');
+  });
+
+  it('US #5: Should move to the second page of the listing', () => {
+    const TAMANO_DE_PAGINA = 10;
+    const marca = Date.now();
+
+    /** Crea los snippets que falten para que el listado tenga mas de una pagina. */
+    const completarHasta = (token: string, faltantes: number) =>
+      cy.wrap(Array.from({ length: faltantes }, (_, i) => i), { log: false })
+        .each((indice: number) => {
+          apiRequest({
+            method: 'POST',
+            url: '/api/snippets',
+            token,
+            body: {
+              name: `E2E Paginado ${marca} ${indice}`,
+              language: 'printscript',
+              version: '1.1',
+              content: `println(${indice});\n`,
+              description: 'Snippet creado para que el listado tenga una segunda pagina',
+            },
+          }).then((alta) => {
+            expect(alta.status, 'alta del snippet de relleno').to.eq(201);
+          });
+        });
+
+    cy.intercept('GET', '/api/snippets*').as('getSnippets');
+    cy.visit('/');
+    cy.get('.MuiTypography-h6', { timeout: 15000 }).should('have.text', 'Printscript');
+
+    cy.wait('@getSnippets').then((primeraLectura) => {
+      const total = (primeraLectura.response?.body as { totalElements: number }).totalElements;
+      cy.log(`El usuario tiene ${total} snippets`);
+      if (total > TAMANO_DE_PAGINA) return;
+
+      authTokenOfCurrentUser().then((token) => {
+        completarHasta(token, TAMANO_DE_PAGINA + 1 - total).then(() => {
+          cy.reload();
+          cy.wait('@getSnippets');
+        });
+      });
+    });
+
+    // La primera pagina pide page=0 y trae tantas filas como el tamaño de pagina
+    cy.get('[data-testid="snippet-row"]', { timeout: 10000 })
+      .should('have.length', TAMANO_DE_PAGINA);
+
+    cy.get('@getSnippets.all').then((lecturas) => {
+      const ultima = (lecturas as unknown as { request: { url: string }, response: { body: { content: { id: string, name: string }[] } } }[]).at(-1)!;
+      expect(ultima.request.url, 'la pagina que se ve es la primera').to.include('page=0');
+      const primeraPagina = ultima.response.body.content;
+
+      // Pasar de pagina: el backend tiene que recibir page=1 y devolver otros snippets
+      cy.get('.MuiTablePagination-actions button').last().should('not.be.disabled').click();
+      cy.wait('@getSnippets').then((segundaLectura) => {
+        expect(segundaLectura.request.url, 'el clic pidio la segunda pagina').to.include('page=1');
+        const segundaPagina = (segundaLectura.response?.body as { content: { id: string, name: string }[] }).content;
+        expect(segundaPagina.length, 'la segunda pagina trae snippets').to.be.greaterThan(0);
+
+        const idsDeLaPrimera = primeraPagina.map((s) => s.id);
+        expect(
+          segundaPagina.filter((s) => idsDeLaPrimera.includes(s.id)),
+          'la segunda pagina no repite snippets de la primera',
+        ).to.have.length(0);
+
+        // Y lo que cambia es lo que se ve en la tabla, no solo el pedido
+        cy.contains('[data-testid="snippet-row"]', segundaPagina[0].name, { timeout: 10000 })
+          .should('be.visible');
+        cy.contains('[data-testid="snippet-row"]', primeraPagina[0].name).should('not.exist');
+      });
+    });
   });
 
   it('US #5: Should filter snippets by name using debounce search', () => {
@@ -73,6 +146,18 @@ describe('Snippet Discovery and Inspection (US #5, US #6)', () => {
     });
   });
 
+  it('US #5: Should sort snippets by Language', () => {
+    cy.intercept('GET', '/api/snippets*').as('sortSnippets');
+    cy.visit('/');
+    cy.wait('@sortSnippets');
+
+    cy.contains('.MuiTableSortLabel-root', 'Language').click();
+    cy.wait('@sortSnippets').its('request.url').should('include', 'sort=language,asc');
+
+    cy.contains('.MuiTableSortLabel-root', 'Language').click();
+    cy.wait('@sortSnippets').its('request.url').should('include', 'sort=language,desc');
+  });
+
   it('US #6: Should view snippet details, description and compliance status', () => {
     cy.intercept('GET', '/api/snippets*').as('getSnippets');
     cy.visit('/');
@@ -82,7 +167,7 @@ describe('Snippet Discovery and Inspection (US #5, US #6)', () => {
     cy.get('[data-testid="snippet-row"]').first().click();
 
     // Drawer should open with details
-    cy.get('[data-testid="snippet-detail-editor"]', { timeout: 10000 }).should('be.visible');
+    cy.get('#snippet-detail-editor', { timeout: 10000 }).should('be.visible');
 
     // Description textfield should exist
     cy.get('textarea[placeholder="What does this snippet do?"]').should('exist');
@@ -100,6 +185,6 @@ describe('Snippet Discovery and Inspection (US #5, US #6)', () => {
 
     // Close drawer
     cy.get('[data-testid="close-drawer-button"]').click();
-    cy.get('[data-testid="snippet-detail-editor"]').should('not.exist');
+    cy.get('#snippet-detail-editor').should('not.exist');
   });
 });

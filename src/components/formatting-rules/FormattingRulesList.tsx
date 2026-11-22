@@ -14,13 +14,21 @@ import {
 import {useGetFormatRules, useModifyFormatRules} from "../../utils/queries.tsx";
 import {queryClient} from "../../App.tsx";
 import {Rule} from "../../types/Rule.ts";
+import {marcarRevalidacionDeReglas} from "../../utils/revalidation.ts";
 
 const FormattingRulesList = () => {
   const [rules, setRules] = useState<Rule[] | undefined>([]);
 
   const {data, isLoading} = useGetFormatRules();
   const {mutateAsync, isLoading: isLoadingMutate} = useModifyFormatRules({
-    onSuccess: () => queryClient.invalidateQueries('formatRules')
+    onSuccess: () => {
+      queryClient.invalidateQueries('formatRules')
+      // Guardar reglas dispara la revalidación en background de todos los snippets del usuario.
+      // Se abre la ventana de polling y se invalida el listado para que la columna de conformidad
+      // llegue al estado final sin recargar la página.
+      marcarRevalidacionDeReglas()
+      queryClient.invalidateQueries('listSnippets')
+    }
   })
 
   useEffect(() => {

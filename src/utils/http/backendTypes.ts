@@ -20,6 +20,8 @@ export type SnippetResponse = {
   id: string;
   name: string;
   ownerId: string;
+  ownerName?: string | null;
+  permission?: 'OWNER' | 'WRITE' | 'READ' | 'NONE' | null;
   language: string;
   version: string;
   description: string | null;
